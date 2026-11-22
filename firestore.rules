@@ -34,9 +34,20 @@ service cloud.firestore {
       return request.auth.token.email.lower().replace('@', '_at_').replace('\\.', '_dot_').replace('\\+', '_plus_');
     }
 
-    // Tier 0 Root Platform Developer (Bootstrapped Owner)
-    function isBootstrappedDeveloper() {
-      return isVerified() && request.auth.token.email.lower() == 'adnanchowdhury477@gmail.com';
+    // Tier 0A: Main Developer Root — STRICTLY locked to the two primary developer emails
+    function isMainDeveloper() {
+      return isVerified()
+        && request.auth.token.email.lower() in [
+          'adnanchowdhury477@gmail.com',
+          'mdadnanchowdhuryifti@gmail.com'
+        ];
+    }
+
+    function isMainDeveloperEmailKey(emailKey) {
+      return emailKey in [
+        'adnanchowdhury477_at_gmail_dot_com',
+        'mdadnanchowdhuryifti_at_gmail_dot_com'
+      ];
     }
 
     function hasRoleDoc() {
@@ -48,19 +59,19 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/role_assignments/$(normalizedEmailKey())).data;
     }
 
-    // Tier 0: Platform Developer (Supreme Root Control — exclusively appoints/revokes Program Chair)
+    // Tier 0: Platform Developer (Main Developers + secondary Developers added strictly by Main Developers)
     function isDeveloper() {
-      return isBootstrappedDeveloper() || (hasRoleDoc() && roleDoc().role == 'developer');
+      return isMainDeveloper() || (hasRoleDoc() && roleDoc().role == 'developer');
     }
 
-    // Tier 1: Program Chair (Appointed by Developer)
-    function isChair() {
-      return hasRoleDoc() && roleDoc().role == 'chair';
+    // Tier 1: Program Chair & Company CEO (Executive Parity — Appointed exclusively by Developers)
+    function isChairOrCeo() {
+      return hasRoleDoc() && roleDoc().role in ['chair', 'ceo'];
     }
 
-    // Full Operational Access: ONLY Developer and Developer-appointed Program Chair
+    // Full Operational Access: Developers, Program Chair, and Company CEO
     function isFullAccess() {
-      return isDeveloper() || isChair();
+      return isDeveloper() || isChairOrCeo();
     }
 
     function isSecretary() {
@@ -82,7 +93,7 @@ service cloud.firestore {
     }
 
     function isAnyAssignedMember() {
-      return isBootstrappedDeveloper() || hasRoleDoc();
+      return isMainDeveloper() || hasRoleDoc();
     }
 
     function isValidSquad(s) {
@@ -90,17 +101,62 @@ service cloud.firestore {
     }
 
     function isValidRole(r) {
-      return r is string && r in ['developer', 'chair', 'secretary', 'lead1', 'lead2', 'lead3', 'lead4', 'lead5', 'ca'];
+      return r is string && r in ['developer', 'chair', 'ceo', 'secretary', 'lead1', 'lead2', 'lead3', 'lead4', 'lead5', 'ca'];
+    }
+
+    function isExecutiveRole(r) {
+      return r is string && r in ['chair', 'ceo'];
     }
 
     function isSubordinateRole(r) {
       return r is string && r in ['secretary', 'lead1', 'lead2', 'lead3', 'lead4', 'lead5', 'ca'];
     }
 
+    function isValidRecruitmentStatus(rs) {
+      return rs is map
+        && rs.keys().hasAll(['secretary', 'lead1', 'lead2', 'lead3', 'lead4', 'lead5', 'ca'])
+        && rs.keys().hasOnly(['secretary', 'lead1', 'lead2', 'lead3', 'lead4', 'lead5', 'ca'])
+        && rs.secretary is bool
+        && rs.lead1 is bool
+        && rs.lead2 is bool
+        && rs.lead3 is bool
+        && rs.lead4 is bool
+        && rs.lead5 is bool
+        && rs.ca is bool;
+    }
+
+    function isValidApplicationRole(roleTitle) {
+      return roleTitle is string && roleTitle in [
+        'Program Secretary',
+        'Operations & CA HR Lead',
+        'Workshop & Course Growth Lead',
+        'Technical Project & Lead-Gen Lead',
+        'Brand & Digital Publicity Lead',
+        'Campus Partnerships & Events Lead',
+        'General Campus Ambassador'
+      ];
+    }
+
+    function isRoleOpenInMap(rs, roleTitle) {
+      return (roleTitle == 'Program Secretary' && rs.secretary == true)
+        || (roleTitle == 'Operations & CA HR Lead' && rs.lead1 == true)
+        || (roleTitle == 'Workshop & Course Growth Lead' && rs.lead2 == true)
+        || (roleTitle == 'Technical Project & Lead-Gen Lead' && rs.lead3 == true)
+        || (roleTitle == 'Brand & Digital Publicity Lead' && rs.lead4 == true)
+        || (roleTitle == 'Campus Partnerships & Events Lead' && rs.lead5 == true)
+        || (roleTitle == 'General Campus Ambassador' && rs.ca == true);
+    }
+
+    function isRecruitmentOpenForRole(roleTitle) {
+      return !exists(/databases/$(database)/documents/settings/program)
+        || !('recruitmentStatus' in get(/databases/$(database)/documents/settings/program).data)
+        || isRoleOpenInMap(get(/databases/$(database)/documents/settings/program).data.recruitmentStatus, roleTitle);
+    }
+
     // ==================== VALIDATION BLUEPRINTS ====================
     function isValidProgramSettings(data) {
       return data.keys().hasAll(['workshopReg', 'techLead', 'brandPost', 'clubEvent', 'certThreshold', 'secretaryName', 'updatedAt'])
-        && data.keys().hasOnly(['workshopReg', 'techLead', 'brandPost', 'clubEvent', 'certThreshold', 'secretaryName', 'chairName', 'updatedAt'])
+        && data.keys().hasOnly(['workshopReg', 'techLead', 'brandPost', 'clubEvent', 'certThreshold', 'secretaryName', 'chairName', 'ceoName', 'recruitmentStatus', 'updatedAt'])
         && data.workshopReg is number && data.workshopReg >= 0 && data.workshopReg <= 500
         && data.techLead is number && data.techLead >= 0 && data.techLead <= 1000
         && data.brandPost is number && data.brandPost >= 0 && data.brandPost <= 200
@@ -108,6 +164,8 @@ service cloud.firestore {
         && data.certThreshold is number && data.certThreshold >= 10 && data.certThreshold <= 10000
         && data.secretaryName is string && data.secretaryName.size() >= 2 && data.secretaryName.size() <= 120
         && (!('chairName' in data) || (data.chairName is string && data.chairName.size() >= 2 && data.chairName.size() <= 120))
+        && (!('ceoName' in data) || (data.ceoName is string && data.ceoName.size() >= 2 && data.ceoName.size() <= 120))
+        && (!('recruitmentStatus' in data) || isValidRecruitmentStatus(data.recruitmentStatus))
         && data.updatedAt == request.time;
     }
 
@@ -208,7 +266,7 @@ service cloud.firestore {
       return data.keys().hasAll(['name', 'role', 'campus', 'squad', 'email', 'applicantUid', 'exp', 'status', 'createdAt', 'updatedAt'])
         && data.keys().hasOnly(['name', 'role', 'campus', 'squad', 'email', 'applicantUid', 'exp', 'status', 'createdAt', 'updatedAt'])
         && data.name is string && data.name.size() >= 2 && data.name.size() <= 120
-        && data.role is string && data.role.size() >= 3 && data.role.size() <= 100
+        && isValidApplicationRole(data.role)
         && data.campus is string && data.campus.size() >= 2 && data.campus.size() <= 120
         && isValidSquad(data.squad)
         && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
@@ -251,16 +309,18 @@ service cloud.firestore {
       allow update: if isVerified() && isValidId(settingId) && settingId == 'program' && isValidProgramSettings(incoming()) && (
         isDeveloper() ||
         (
-          isChair()
-          && incoming().diff(existing()).affectedKeys().hasOnly(['workshopReg', 'techLead', 'brandPost', 'clubEvent', 'certThreshold', 'secretaryName', 'updatedAt'])
+          isChairOrCeo()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['workshopReg', 'techLead', 'brandPost', 'clubEvent', 'certThreshold', 'secretaryName', 'recruitmentStatus', 'updatedAt'])
         )
       );
       allow delete: if false;
     }
 
     // ==================== 2. ROLE ASSIGNMENTS (PII + RBAC MASTER) ====================
-    // ONLY Platform Developer can appoint/update/revoke 'developer' or 'chair' roles.
-    // Program Chair may assign/manage subordinate ExCom & CA roles only.
+    // ONLY the 2 Main Developers can add/edit/revoke 'developer' assignments.
+    // Neither Main Developer email key can be demoted or deleted.
+    // Developers can appoint/update/revoke Program Chair & Company CEO.
+    // Chair & CEO can manage subordinate ExCom & CA roles only.
     match /role_assignments/{emailKey} {
       allow get: if isVerified() && isValidId(emailKey) && (emailKey == normalizedEmailKey() || isFullAccess());
       allow list: if isVerified() && isFullAccess();
@@ -268,21 +328,26 @@ service cloud.firestore {
         && isValidId(emailKey)
         && isValidRoleAssignment(incoming())
         && (
-          isDeveloper() ||
-          (isChair() && isSubordinateRole(incoming().role))
+          (isMainDeveloper() && incoming().role == 'developer') ||
+          (isDeveloper() && !isMainDeveloperEmailKey(emailKey) && (isExecutiveRole(incoming().role) || isSubordinateRole(incoming().role))) ||
+          (isChairOrCeo() && !isMainDeveloperEmailKey(emailKey) && isSubordinateRole(incoming().role))
         );
       allow update: if isVerified()
         && isValidId(emailKey)
         && isValidRoleAssignment(incoming())
         && (
-          isDeveloper() ||
-          (isChair() && isSubordinateRole(existing().role) && isSubordinateRole(incoming().role))
+          (isMainDeveloper() && isMainDeveloperEmailKey(emailKey) && incoming().role == 'developer') ||
+          (isMainDeveloper() && !isMainDeveloperEmailKey(emailKey)) ||
+          (isDeveloper() && !isMainDeveloperEmailKey(emailKey) && existing().role != 'developer' && incoming().role != 'developer') ||
+          (isChairOrCeo() && !isMainDeveloperEmailKey(emailKey) && isSubordinateRole(existing().role) && isSubordinateRole(incoming().role))
         );
       allow delete: if isVerified()
         && isValidId(emailKey)
+        && !isMainDeveloperEmailKey(emailKey)
         && (
-          isDeveloper() ||
-          (isChair() && isSubordinateRole(existing().role))
+          isMainDeveloper() ||
+          (isDeveloper() && existing().role != 'developer') ||
+          (isChairOrCeo() && isSubordinateRole(existing().role))
         );
     }
 
@@ -377,7 +442,7 @@ service cloud.firestore {
         && isValidId(ticketId)
         && isValidTechLead(incoming())
         && incoming().submitterUid == request.auth.uid
-        && incoming().stage == 'New'
+        && (incoming().stage == 'New' || isFullAccess())
         && incoming().createdAt == request.time
         && isAnyAssignedMember();
       allow update: if isVerified()
@@ -414,7 +479,7 @@ service cloud.firestore {
       allow delete: if isVerified() && isValidId(kitId) && (isFullAccess() || isSpecificLead('lead4'));
     }
 
-    // ==================== 9. RECRUITMENT APPLICATIONS (PRIVATE PII) ====================
+    // ==================== 9. RECRUITMENT APPLICATIONS (PRIVATE PII + RECRUITMENT LOCK) ====================
     match /applications/{applicationId} {
       allow get: if isVerified() && isValidId(applicationId) && (
         existing().applicantUid == request.auth.uid || isFullAccess() || isSecretary()
@@ -428,7 +493,8 @@ service cloud.firestore {
         && incoming().applicantUid == request.auth.uid
         && incoming().email.lower() == request.auth.token.email.lower()
         && incoming().status == 'Pending'
-        && incoming().createdAt == request.time;
+        && incoming().createdAt == request.time
+        && isRecruitmentOpenForRole(incoming().role);
       allow update: if isVerified()
         && isValidId(applicationId)
         && isValidApplication(incoming())

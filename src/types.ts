@@ -10,9 +10,12 @@ export type GovernanceNodeKey =
   | 'lead5'
   | 'general';
 
+export type AuthSignInMode = 'standard' | 'executive' | 'developer';
+
 export type UserRole =
   | 'developer'
   | 'chair'
+  | 'ceo'
   | 'secretary'
   | 'lead1'
   | 'lead2'
@@ -22,6 +25,17 @@ export type UserRole =
   | 'ca';
 
 export type LeadRole = 'lead1' | 'lead2' | 'lead3' | 'lead4' | 'lead5';
+
+export type RecruitmentRoleKey =
+  | 'secretary'
+  | 'lead1'
+  | 'lead2'
+  | 'lead3'
+  | 'lead4'
+  | 'lead5'
+  | 'ca';
+
+export type RecruitmentStatusMap = Record<RecruitmentRoleKey, boolean>;
 
 export interface GovernanceNode {
   tier: string;
@@ -177,7 +191,9 @@ export interface ClubPitch {
 export interface PortalDB {
   kpiWeights: KpiWeights;
   chairName: string;
+  ceoName: string;
   secretaryName: string;
+  recruitmentStatus: RecruitmentStatusMap;
   roster: Ambassador[];
   workshops: Workshop[];
   workshopRegistrations: WorkshopRegistration[];
@@ -197,6 +213,7 @@ export interface PortalUser {
   photoURL: string | null;
   emailVerified: boolean;
   assigned: boolean;
+  isMainDeveloper: boolean;
   role: UserRole | null;
   squad: 'ALL' | SquadName | null;
   caCode: string;

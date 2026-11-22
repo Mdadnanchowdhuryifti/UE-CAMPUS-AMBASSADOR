@@ -1,15 +1,24 @@
 import { useState } from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Lock } from 'lucide-react';
 import { CORE_LEADS_LIST, GOVERNANCE_NODES } from '../data/playbook';
-import { GovernanceNodeKey } from '../types';
+import { isRoleOpenForRecruitment } from '../services/portalService';
+import { GovernanceNodeKey, RecruitmentStatusMap } from '../types';
 
 interface GovernanceSectionProps {
+  recruitmentStatus: RecruitmentStatusMap;
   onApply: (role: string) => void;
 }
 
-export function GovernanceSection({ onApply }: GovernanceSectionProps) {
+export function GovernanceSection({
+  recruitmentStatus,
+  onApply,
+}: GovernanceSectionProps) {
   const [selectedKey, setSelectedKey] = useState<GovernanceNodeKey>('chair');
   const activeNode = GOVERNANCE_NODES[selectedKey];
+  const isActiveNodeApplyOpen = isRoleOpenForRecruitment(
+    recruitmentStatus,
+    activeNode.applyRole
+  );
 
   const getNodeClasses = (key: GovernanceNodeKey, emphasized = false) => {
     const isActive = selectedKey === key;
@@ -205,14 +214,26 @@ export function GovernanceSection({ onApply }: GovernanceSectionProps) {
               </div>
 
               <div className="pt-4 border-t border-[#E2E5EB] dark:border-[#262B35]">
-                <button
-                  type="button"
-                  onClick={() => onApply(activeNode.applyRole)}
-                  className="w-full inline-flex items-center justify-center gap-2 bg-[#111318] dark:bg-white text-white dark:text-[#111318] hover:bg-[#B51B27] dark:hover:bg-[#B51B27] dark:hover:text-white text-xs font-semibold py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
-                >
-                  <span>{activeNode.cta}</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </button>
+                {isActiveNodeApplyOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => onApply(activeNode.applyRole)}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-[#111318] dark:bg-white text-white dark:text-[#111318] hover:bg-[#B51B27] dark:hover:bg-[#B51B27] dark:hover:text-white text-xs font-semibold py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <span>{activeNode.cta}</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    className="w-full inline-flex items-center justify-center gap-2 bg-[#E2E5EB] dark:bg-[#1E222B] text-[#5A6270] dark:text-slate-400 border border-[#D0D5DD] dark:border-[#2E3440] text-xs font-semibold py-2.5 px-4 rounded-lg cursor-not-allowed"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Recruitment Closed</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

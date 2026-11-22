@@ -18,13 +18,19 @@ import {
   normalizeEmailKey,
   OperationType,
 } from '../lib/firebase';
-import { DEFAULT_DB } from '../data/playbook';
+import {
+  DEFAULT_DB,
+  DEFAULT_RECRUITMENT_STATUS,
+  RECRUITMENT_ROLE_ITEMS,
+} from '../data/playbook';
 import {
   Ambassador,
   CertificateRecord,
   ClubPitchStatus,
   KpiWeights,
   LeadRole,
+  RecruitmentRoleKey,
+  RecruitmentStatusMap,
   RoleAssignment,
   SquadName,
   SubmissionType,
@@ -41,8 +47,9 @@ export const LEAD_TO_SQUAD: Record<LeadRole, SquadName> = {
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  developer: 'Tier 0 · Platform Developer (Root Full Control)',
-  chair: 'Tier 1 · Program Chair (Developer-Appointed · Full Access)',
+  developer: 'Tier 0 · Platform Developer (Root Control)',
+  chair: 'Tier 1 · Program Chair (Executive Full Access)',
+  ceo: 'Tier 1 · Company CEO (Executive Full Access)',
   secretary: 'Tier 2 · Program Secretary',
   lead1: 'Tier 3 · Lead 1 (Operations & CA HR · Squad A)',
   lead2: 'Tier 3 · Lead 2 (Workshop & Growth · Squad B)',
@@ -53,7 +60,11 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export function isFullAccessRole(role: UserRole | null): boolean {
-  return role === 'developer' || role === 'chair';
+  return role === 'developer' || role === 'chair' || role === 'ceo';
+}
+
+export function isExecutiveOrDevRole(role: UserRole | null): boolean {
+  return role === 'developer' || role === 'chair' || role === 'ceo';
 }
 
 export function mapApplicationRoleToUserRole(roleTitle: string): UserRole {
@@ -65,6 +76,59 @@ export function mapApplicationRoleToUserRole(roleTitle: string): UserRole {
   if (r.includes('brand') || r.includes('publicity') || r.includes('pr')) return 'lead4';
   if (r.includes('partnership') || r.includes('events') || r.includes('club')) return 'lead5';
   return 'ca';
+}
+
+export function getRecruitmentKeyForRoleTitle(roleTitle: string): RecruitmentRoleKey {
+  const exact = RECRUITMENT_ROLE_ITEMS.find(
+    (item) => item.roleTitle.toLowerCase() === roleTitle.trim().toLowerCase()
+  );
+  if (exact) return exact.key;
+  const mapped = mapApplicationRoleToUserRole(roleTitle);
+  if (
+    mapped === 'secretary' ||
+    mapped === 'lead1' ||
+    mapped === 'lead2' ||
+    mapped === 'lead3' ||
+    mapped === 'lead4' ||
+    mapped === 'lead5' ||
+    mapped === 'ca'
+  ) {
+    return mapped;
+  }
+  return 'ca';
+}
+
+export function isRoleOpenForRecruitment(
+  status: RecruitmentStatusMap,
+  roleTitle: string
+): boolean {
+  const key = getRecruitmentKeyForRoleTitle(roleTitle);
+  return status[key] !== false;
+}
+
+export function hasAnyOpenRecruitmentRole(status: RecruitmentStatusMap): boolean {
+  return Object.values(status).some(Boolean);
+}
+
+export function getFirstOpenRecruitmentRoleTitle(status: RecruitmentStatusMap): string | null {
+  const found = RECRUITMENT_ROLE_ITEMS.find((item) => status[item.key]);
+  return found ? found.roleTitle : null;
+}
+
+export function normalizeRecruitmentStatus(raw: unknown): RecruitmentStatusMap {
+  if (!raw || typeof raw !== 'object') {
+    return { ...DEFAULT_RECRUITMENT_STATUS };
+  }
+  const r = raw as Record<string, unknown>;
+  return {
+    secretary: typeof r.secretary === 'boolean' ? r.secretary : true,
+    lead1: typeof r.lead1 === 'boolean' ? r.lead1 : true,
+    lead2: typeof r.lead2 === 'boolean' ? r.lead2 : true,
+    lead3: typeof r.lead3 === 'boolean' ? r.lead3 : true,
+    lead4: typeof r.lead4 === 'boolean' ? r.lead4 : true,
+    lead5: typeof r.lead5 === 'boolean' ? r.lead5 : true,
+    ca: typeof r.ca === 'boolean' ? r.ca : true,
+  };
 }
 
 function clamp(str: string, max: number): string {
@@ -101,14 +165,18 @@ export async function seedInitialFirestoreData(): Promise<boolean> {
       certThreshold: DEFAULT_DB.kpiWeights.certThreshold,
       secretaryName: DEFAULT_DB.secretaryName,
       chairName: DEFAULT_DB.chairName,
+      ceoName: DEFAULT_DB.ceoName,
+      recruitmentStatus: { ...DEFAULT_RECRUITMENT_STATUS },
       updatedAt: serverTimestamp(),
     });
 
     // 2. Root Developer Role Assignment
     const devKey = normalizeEmailKey(email);
+    const rawDevName = (auth.currentUser?.displayName || '').trim();
+    const safeDevName = rawDevName.length >= 2 ? clamp(rawDevName, 120) : 'Platform Developer';
     batch.set(doc(db, 'role_assignments', devKey), {
       email: email.toLowerCase(),
-      displayName: clamp(auth.currentUser?.displayName || 'Platform Developer', 120),
+      displayName: safeDevName,
       role: 'developer',
       squad: 'ALL',
       caCode: 'UE-DEV-00',
@@ -215,6 +283,48 @@ export async function saveProgramSettings(
       await setDoc(ref, {
         ...payload,
         chairName: DEFAULT_DB.chairName,
+        ceoName: DEFAULT_DB.ceoName,
+        recruitmentStatus: { ...DEFAULT_RECRUITMENT_STATUS },
+      });
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, 'settings/program');
+  }
+}
+
+export async function updateRecruitmentStatusDoc(
+  nextStatus: RecruitmentStatusMap
+): Promise<void> {
+  const cleanStatus: RecruitmentStatusMap = {
+    secretary: Boolean(nextStatus.secretary),
+    lead1: Boolean(nextStatus.lead1),
+    lead2: Boolean(nextStatus.lead2),
+    lead3: Boolean(nextStatus.lead3),
+    lead4: Boolean(nextStatus.lead4),
+    lead5: Boolean(nextStatus.lead5),
+    ca: Boolean(nextStatus.ca),
+  };
+
+  try {
+    const ref = doc(db, 'settings', 'program');
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      await updateDoc(ref, {
+        recruitmentStatus: cleanStatus,
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await setDoc(ref, {
+        workshopReg: DEFAULT_DB.kpiWeights.workshopReg,
+        techLead: DEFAULT_DB.kpiWeights.techLead,
+        brandPost: DEFAULT_DB.kpiWeights.brandPost,
+        clubEvent: DEFAULT_DB.kpiWeights.clubEvent,
+        certThreshold: DEFAULT_DB.kpiWeights.certThreshold,
+        secretaryName: DEFAULT_DB.secretaryName,
+        chairName: DEFAULT_DB.chairName,
+        ceoName: DEFAULT_DB.ceoName,
+        recruitmentStatus: cleanStatus,
+        updatedAt: serverTimestamp(),
       });
     }
   } catch (error) {
@@ -236,7 +346,10 @@ export async function upsertRoleAssignment(input: {
   const cleanEmail = clamp(input.email.toLowerCase(), 160);
   const emailKey = normalizeEmailKey(cleanEmail);
   const derivedSquad: 'ALL' | SquadName =
-    input.role === 'developer' || input.role === 'chair' || input.role === 'secretary'
+    input.role === 'developer' ||
+    input.role === 'chair' ||
+    input.role === 'ceo' ||
+    input.role === 'secretary'
       ? 'ALL'
       : input.role === 'ca'
       ? input.squad === 'ALL'
@@ -264,6 +377,17 @@ export async function upsertRoleAssignment(input: {
       if (settingsSnap.exists()) {
         await updateDoc(settingsRef, {
           chairName: clamp(input.displayName, 120),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+
+    if (input.role === 'ceo') {
+      const settingsRef = doc(db, 'settings', 'program');
+      const settingsSnap = await getDoc(settingsRef);
+      if (settingsSnap.exists()) {
+        await updateDoc(settingsRef, {
+          ceoName: clamp(input.displayName, 120),
           updatedAt: serverTimestamp(),
         });
       }

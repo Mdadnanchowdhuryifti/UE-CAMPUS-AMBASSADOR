@@ -1,5 +1,9 @@
 import { motion } from 'motion/react';
-import { ArrowRight, ArrowUpRight, ShieldCheck, Terminal } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Crown, Lock, ShieldCheck, Terminal } from 'lucide-react';
+import {
+  getFirstOpenRecruitmentRoleTitle,
+  hasAnyOpenRecruitmentRole,
+} from '../services/portalService';
 import { PortalDB, PortalUser } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -8,6 +12,7 @@ interface HeroSectionProps {
   currentUser: PortalUser | null;
   onApply: (role: string) => void;
   onOpenDashboard: () => void;
+  onOpenExecutiveSignIn: () => void;
   onOpenDeveloperSignIn: () => void;
 }
 
@@ -16,10 +21,15 @@ export function HeroSection({
   currentUser,
   onApply,
   onOpenDashboard,
+  onOpenExecutiveSignIn,
   onOpenDeveloperSignIn,
 }: HeroSectionProps) {
   const totalWorkshops = db.roster.reduce((sum, r) => sum + r.workshopRegs, 0);
   const totalLeads = db.roster.reduce((sum, r) => sum + r.techLeads, 0);
+  const anyRecruitmentOpen = hasAnyOpenRecruitmentRole(db.recruitmentStatus);
+  const preferredApplyRole = db.recruitmentStatus.ca
+    ? 'General Campus Ambassador'
+    : getFirstOpenRecruitmentRoleTitle(db.recruitmentStatus) || 'General Campus Ambassador';
 
   return (
     <section className="relative overflow-hidden swiss-grid border-b border-[#E2E5EB] dark:border-[#262B35]">
@@ -53,19 +63,31 @@ export function HeroSection({
               <strong className="font-semibold text-[#111318] dark:text-white">
                 4-Tier ExCom Governance
               </strong>{' '}
-              (Program Chair, Secretary, 5 Core Team Leads, and General CAs) with real-time cloud
-              sync and installable app support.
+              (Program Chair &amp; Company CEO, Secretary, 5 Core Team Leads, and General CAs) with
+              real-time cloud sync and installable app support.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
-              <button
-                type="button"
-                onClick={() => onApply('General Campus Ambassador')}
-                className="inline-flex items-center gap-2 bg-[#B51B27] hover:bg-[#92141E] text-white text-sm font-semibold px-6 py-3 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <span>Apply to Join Program</span>
-                <ArrowUpRight className="w-4 h-4" />
-              </button>
+              {anyRecruitmentOpen ? (
+                <button
+                  type="button"
+                  onClick={() => onApply(preferredApplyRole)}
+                  className="inline-flex items-center gap-2 bg-[#B51B27] hover:bg-[#92141E] text-white text-sm font-semibold px-6 py-3 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <span>Apply to Join Program</span>
+                  <ArrowUpRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  className="inline-flex items-center gap-2 bg-[#E2E5EB] dark:bg-[#1E222B] text-[#5A6270] dark:text-slate-400 border border-[#D0D5DD] dark:border-[#2E3440] text-sm font-semibold px-6 py-3 rounded-lg whitespace-nowrap shrink-0 cursor-not-allowed"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Recruitment Closed</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -93,22 +115,34 @@ export function HeroSection({
                   {currentUser.assigned && currentUser.role
                     ? ` · Verified ${
                         currentUser.role === 'developer'
-                          ? 'TIER 0 DEVELOPER (ROOT)'
+                          ? currentUser.isMainDeveloper
+                            ? 'MAIN DEVELOPER (ROOT)'
+                            : 'TIER 0 DEVELOPER'
+                          : currentUser.role === 'ceo'
+                          ? 'COMPANY CEO (CHAIR FULL ACCESS)'
                           : currentUser.role.toUpperCase()
                       } access`
-                    : ' · Awaiting Developer / Chair role assignment'}
+                    : ' · Awaiting Developer / Chair / CEO role assignment'}
                 </span>
               </div>
             ) : (
-              <div className="inline-flex items-center gap-2 text-xs text-[#5A6270] dark:text-slate-400">
-                <Terminal className="w-3.5 h-3.5 text-[#B51B27] shrink-0" />
-                <span>Platform Administrator?</span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[#5A6270] dark:text-slate-400">
+                <button
+                  type="button"
+                  onClick={onOpenExecutiveSignIn}
+                  className="inline-flex items-center gap-1.5 font-mono font-semibold text-[#111318] dark:text-white hover:text-[#B51B27] underline underline-offset-4 cursor-pointer"
+                >
+                  <Crown className="w-3.5 h-3.5 text-[#B51B27] shrink-0" />
+                  <span>Chair &amp; CEO Sign In</span>
+                </button>
+                <span aria-hidden="true">·</span>
                 <button
                   type="button"
                   onClick={onOpenDeveloperSignIn}
-                  className="font-mono font-semibold text-[#111318] dark:text-white hover:text-[#B51B27] underline underline-offset-4 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-mono font-semibold text-[#111318] dark:text-white hover:text-[#B51B27] underline underline-offset-4 cursor-pointer"
                 >
-                  Developer Root Sign In
+                  <Terminal className="w-3.5 h-3.5 text-[#B51B27] shrink-0" />
+                  <span>Developer Root Sign In</span>
                 </button>
               </div>
             )}

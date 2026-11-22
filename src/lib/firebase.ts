@@ -9,7 +9,16 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-export const BOOTSTRAPPED_DEVELOPER_EMAIL = 'adnanchowdhury477@gmail.com';
+export const MAIN_DEVELOPER_EMAILS = [
+  'adnanchowdhury477@gmail.com',
+  'mdadnanchowdhuryifti@gmail.com',
+] as const;
+
+export function isMainDeveloperEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return (MAIN_DEVELOPER_EMAILS as readonly string[]).includes(clean);
+}
 
 export function normalizeEmailKey(email: string): string {
   return email
@@ -19,6 +28,8 @@ export function normalizeEmailKey(email: string): string {
     .replace(/\./g, '_dot_')
     .replace(/\+/g, '_plus_');
 }
+
+export const MAIN_DEVELOPER_EMAIL_KEYS = MAIN_DEVELOPER_EMAILS.map(normalizeEmailKey);
 
 export enum OperationType {
   CREATE = 'create',

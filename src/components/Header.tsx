@@ -32,7 +32,10 @@ export function Header({
     if (authLoading) return 'Checking Session...';
     if (!currentUser) return 'Portal Sign In';
     if (!currentUser.assigned || !currentUser.role) return 'My Account';
-    if (currentUser.role === 'developer') return 'Developer Console';
+    if (currentUser.role === 'developer') {
+      return currentUser.isMainDeveloper ? 'Main Dev Console' : 'Developer Console';
+    }
+    if (currentUser.role === 'ceo') return 'CEO Console';
     if (currentUser.role === 'chair') return 'Chair Console';
     if (currentUser.role === 'secretary') return 'Secretary Hub';
     if (currentUser.role.startsWith('lead')) {

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import {
   ArrowLeft,
+  CheckCircle2,
   Copy,
   Crown,
   Database,
@@ -8,11 +9,20 @@ import {
   Lock,
   LogOut,
   ShieldCheck,
+  SlidersHorizontal,
   Terminal,
   Trash2,
   UserPlus,
 } from 'lucide-react';
-import { calcPoints, SQUAD_NAMES } from '../data/playbook';
+import {
+  calcPoints,
+  RECRUITMENT_ROLE_ITEMS,
+  SQUAD_NAMES,
+} from '../data/playbook';
+import {
+  MAIN_DEVELOPER_EMAILS,
+  MAIN_DEVELOPER_EMAIL_KEYS,
+} from '../lib/firebase';
 import { isFullAccessRole, LEAD_TO_SQUAD, ROLE_LABELS } from '../services/portalService';
 import {
   ClubPitchStatus,
@@ -20,6 +30,8 @@ import {
   LeadRole,
   PortalDB,
   PortalUser,
+  RecruitmentRoleKey,
+  RecruitmentStatusMap,
   SquadName,
   SubmissionType,
   TechPipelineStage,
@@ -29,6 +41,7 @@ import {
 type DashboardSegment =
   | 'developer'
   | 'chair'
+  | 'recruitment'
   | 'roles'
   | 'secretary'
   | 'lead1'
@@ -45,6 +58,7 @@ interface RoleDashboardProps {
   onLogout: () => Promise<void>;
   onApplyForRole: () => void;
   onSeedCloudDB: () => Promise<void>;
+  onUpdateRecruitmentStatus: (nextStatus: RecruitmentStatusMap) => Promise<void>;
   onUpsertRole: (input: {
     email: string;
     displayName: string;
@@ -89,6 +103,7 @@ export function RoleDashboard({
   onLogout,
   onApplyForRole,
   onSeedCloudDB,
+  onUpdateRecruitmentStatus,
   onUpsertRole,
   onDeleteRole,
   onAddAmbassador,
@@ -109,9 +124,10 @@ export function RoleDashboard({
   onCopyText,
 }: RoleDashboardProps) {
   const isDeveloper = user.assigned && user.role === 'developer';
+  const isMainDeveloper = isDeveloper && user.isMainDeveloper;
   const isFullAccess = user.assigned && isFullAccessRole(user.role);
 
-  // ONLY Platform Developer and Developer-appointed Program Chair can navigate across all segments.
+  // ONLY Developers, Program Chair, and Company CEO can navigate across all segments.
   // Every other role is strictly locked to their own assigned segment!
   const [selectedSegment, setSelectedSegment] = useState<DashboardSegment>(() =>
     user.role === 'developer' ? 'developer' : 'chair'
@@ -120,7 +136,7 @@ export function RoleDashboard({
   useEffect(() => {
     if (user.role === 'developer') {
       setSelectedSegment('developer');
-    } else if (user.role === 'chair') {
+    } else if (user.role === 'chair' || user.role === 'ceo') {
       setSelectedSegment('chair');
     }
   }, [user.role]);
@@ -131,11 +147,20 @@ export function RoleDashboard({
       : selectedSegment
     : ((user.role || 'ca') as DashboardSegment);
 
-  // Developer-only Program Chair Appointment form state
+  // Main Developer ONLY: Add New Developer form state
+  const [newDevEmail, setNewDevEmail] = useState('');
+  const [newDevName, setNewDevName] = useState('');
+  const [newDevCampus, setNewDevCampus] = useState('Ulterior Engineering HQ');
+
+  // Developer-only Program Chair & Company CEO Appointment form state
+  const [execRole, setExecRole] = useState<'chair' | 'ceo'>('chair');
   const [chairEmail, setChairEmail] = useState('');
   const [chairDisplayName, setChairDisplayName] = useState('');
   const [chairCampus, setChairCampus] = useState('');
   const [chairCode, setChairCode] = useState('UE-EXCOM-01');
+
+  // Recruitment toggle busy indicator
+  const [updatingRecruitment, setUpdatingRecruitment] = useState(false);
 
   // Chair KPI Weights state
   const [wReg, setWReg] = useState(db.kpiWeights.workshopReg);
@@ -150,7 +175,7 @@ export function RoleDashboard({
     setWCert(db.kpiWeights.certThreshold);
   }, [db.kpiWeights]);
 
-  // Role assignment form state (Developer: all roles; Chair: subordinate roles only)
+  // Role assignment form state (Main Dev: all roles; Dev: Chair/CEO/subordinates; Chair/CEO: subordinates only)
   const [roleEmail, setRoleEmail] = useState('');
   const [roleName, setRoleName] = useState('');
   const [roleType, setRoleType] = useState<UserRole>('secretary');
@@ -158,23 +183,23 @@ export function RoleDashboard({
   const [roleCaCode, setRoleCaCode] = useState('');
   const [roleCampus, setRoleCampus] = useState('');
 
-  // Certificate form state (Chair only)
+  // Certificate form state (Full Access)
   const [cHolder, setCHolder] = useState('');
   const [cCampus, setCCampus] = useState('');
   const [cRole, setCRole] = useState('');
 
-  // Workshop form state (Chair + Lead 2)
+  // Workshop form state (Full Access + Lead 2)
   const [nwTitle, setNwTitle] = useState('');
   const [nwDate, setNwDate] = useState('');
   const [nwFee, setNwFee] = useState('');
 
-  // Ambassador add form (Chair + Lead 1)
+  // Ambassador add form (Full Access + Lead 1)
   const [ambName, setAmbName] = useState('');
   const [ambCampus, setAmbCampus] = useState('');
   const [ambSquad, setAmbSquad] = useState<SquadName>('Squad A');
   const [ambCode, setAmbCode] = useState('');
 
-  // Campaign kit form (Chair + Secretary + Lead 4)
+  // Campaign kit form (Full Access + Secretary + Lead 4)
   const [kitTitle, setKitTitle] = useState('');
   const [kitCopy, setKitCopy] = useState('');
 
@@ -193,15 +218,30 @@ export function RoleDashboard({
     });
   };
 
-  const handleAppointChair = async (e: FormEvent) => {
+  const handleAddNewDeveloper = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!isMainDeveloper || !newDevEmail.trim() || !newDevName.trim()) return;
+    await onUpsertRole({
+      email: newDevEmail.trim(),
+      displayName: newDevName.trim(),
+      role: 'developer',
+      squad: 'ALL',
+      caCode: 'UE-DEV-02',
+      campus: newDevCampus.trim() || 'Ulterior Engineering HQ',
+    });
+    setNewDevEmail('');
+    setNewDevName('');
+  };
+
+  const handleAppointExecutive = async (e: FormEvent) => {
     e.preventDefault();
     if (!isDeveloper || !chairEmail.trim() || !chairDisplayName.trim()) return;
     await onUpsertRole({
       email: chairEmail.trim(),
       displayName: chairDisplayName.trim(),
-      role: 'chair',
+      role: execRole,
       squad: 'ALL',
-      caCode: chairCode.trim() || 'UE-EXCOM-01',
+      caCode: chairCode.trim() || (execRole === 'ceo' ? 'UE-CEO-01' : 'UE-EXCOM-01'),
       campus: chairCampus.trim() || 'Ulterior Engineering',
     });
     setChairEmail('');
@@ -209,14 +249,68 @@ export function RoleDashboard({
     setChairCampus('');
   };
 
+  const handleToggleRecruitmentRole = async (key: RecruitmentRoleKey) => {
+    if (!isFullAccess || updatingRecruitment) return;
+    setUpdatingRecruitment(true);
+    try {
+      await onUpdateRecruitmentStatus({
+        ...db.recruitmentStatus,
+        [key]: !db.recruitmentStatus[key],
+      });
+    } finally {
+      setUpdatingRecruitment(false);
+    }
+  };
+
+  const handleBulkRecruitmentUpdate = async (mode: 'close-excom' | 'open-all' | 'close-all') => {
+    if (!isFullAccess || updatingRecruitment) return;
+    setUpdatingRecruitment(true);
+    try {
+      if (mode === 'close-excom') {
+        await onUpdateRecruitmentStatus({
+          ...db.recruitmentStatus,
+          secretary: false,
+          lead1: false,
+          lead2: false,
+          lead3: false,
+          lead4: false,
+          lead5: false,
+        });
+      } else if (mode === 'open-all') {
+        await onUpdateRecruitmentStatus({
+          secretary: true,
+          lead1: true,
+          lead2: true,
+          lead3: true,
+          lead4: true,
+          lead5: true,
+          ca: true,
+        });
+      } else {
+        await onUpdateRecruitmentStatus({
+          secretary: false,
+          lead1: false,
+          lead2: false,
+          lead3: false,
+          lead4: false,
+          lead5: false,
+          ca: false,
+        });
+      }
+    } finally {
+      setUpdatingRecruitment(false);
+    }
+  };
+
   const handleAssignRole = async (e: FormEvent) => {
     e.preventDefault();
     if (!roleEmail.trim() || !roleName.trim()) return;
-    // Enforce client-side parity with Firestore Rules: only Developer can assign developer/chair
-    const safeRole: UserRole =
-      !isDeveloper && (roleType === 'developer' || roleType === 'chair')
-        ? 'secretary'
-        : roleType;
+    let safeRole: UserRole = roleType;
+    if (safeRole === 'developer' && !isMainDeveloper) {
+      safeRole = 'secretary';
+    } else if ((safeRole === 'chair' || safeRole === 'ceo') && !isDeveloper) {
+      safeRole = 'secretary';
+    }
     await onUpsertRole({
       email: roleEmail.trim(),
       displayName: roleName.trim(),
@@ -424,7 +518,7 @@ export function RoleDashboard({
           </div>
         </div>
 
-        {/* DEVELOPER & APPOINTED CHAIR ONLY: Full-Site Segment Navigator */}
+        {/* DEVELOPER, CHAIR & COMPANY CEO: Full-Site Segment Navigator */}
         {isFullAccess && (
           <div className="border-t border-[#E2E5EB] dark:border-[#262B35] bg-white/90 dark:bg-[#15181E]/90">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-1.5 overflow-x-auto">
@@ -433,7 +527,11 @@ export function RoleDashboard({
                   ...(isDeveloper
                     ? [{ id: 'developer' as DashboardSegment, label: 'Developer Root' }]
                     : []),
-                  { id: 'chair' as DashboardSegment, label: 'Chair Master' },
+                  {
+                    id: 'chair' as DashboardSegment,
+                    label: user.role === 'ceo' ? 'CEO / Chair Master' : 'Chair Master',
+                  },
+                  { id: 'recruitment' as DashboardSegment, label: 'Recruitment Controls' },
                   { id: 'roles' as DashboardSegment, label: 'Access & Roles' },
                   { id: 'secretary' as DashboardSegment, label: 'Secretary Hub' },
                   { id: 'lead1' as DashboardSegment, label: 'Lead 1 · Ops' },
@@ -530,15 +628,19 @@ export function RoleDashboard({
               <div>
                 <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-[#B51B27]">
                   <Terminal className="w-3.5 h-3.5" />
-                  <span>Tier 0 · Platform Developer Root Control</span>
+                  <span>
+                    {isMainDeveloper
+                      ? 'Tier 0A · Main Developer Root Control (Permanent)'
+                      : 'Tier 0B · Added Platform Developer Control'}
+                  </span>
                 </div>
                 <h3 className="font-display text-xl font-extrabold mt-1">
-                  Supreme Full-Site Control &amp; Program Chair Appointment
+                  Full-Site Root Governance, Developer Provisioning &amp; Executive Appointments
                 </h3>
                 <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                  You hold exclusive Tier 0 Root authority over this website. Only the Developer
-                  can appoint, replace, or revoke the <strong>Program Chair</strong>, manage root
-                  database backups, and inspect every ExCom &amp; Ambassador workspace.
+                  {isMainDeveloper
+                    ? 'As one of the two Main Developers, you hold permanent supreme root control: exclusively add or revoke Developers, appoint the Program Chair and Company CEO, and govern recruitment across the entire site.'
+                    : 'As an added Platform Developer, you can appoint/revoke Program Chair and Company CEO, control recruitment switches, and access every workspace. Adding or revoking Developers remains locked to the two Main Developers.'}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -561,64 +663,231 @@ export function RoleDashboard({
               </div>
             </div>
 
+            {/* ROW 1: Main Developer Provisioning Block */}
             <div className="grid lg:grid-cols-12 gap-6">
-              {/* Appoint Program Chair Card */}
+              <div className="lg:col-span-5 bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <Terminal className="w-4 h-4 text-[#B51B27]" />
+                  <h4 className="font-display font-bold text-base text-[#111318] dark:text-white">
+                    Add New Developer (Main Developer Only)
+                  </h4>
+                </div>
+                {isMainDeveloper ? (
+                  <>
+                    <p className="text-xs text-[#5A6270] dark:text-slate-400 mb-4">
+                      Only the two Main Developer emails can grant Developer Mode access to a new
+                      email. Added Developers cannot modify or revoke Main Developers.
+                    </p>
+                    <form onSubmit={handleAddNewDeveloper} className="space-y-3 text-xs">
+                      <div>
+                        <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
+                          New Developer Google Email
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={newDevEmail}
+                          onChange={(e) => setNewDevEmail(e.target.value)}
+                          placeholder="new.developer@gmail.com"
+                          className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
+                          Developer Full Name
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newDevName}
+                          onChange={(e) => setNewDevName(e.target.value)}
+                          placeholder="Full Name"
+                          className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
+                          Division / HQ
+                        </label>
+                        <input
+                          type="text"
+                          value={newDevCampus}
+                          onChange={(e) => setNewDevCampus(e.target.value)}
+                          placeholder="Ulterior Engineering HQ"
+                          className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="w-full bg-[#111318] hover:bg-[#B51B27] dark:bg-[#B51B27] dark:hover:bg-[#92141E] text-white font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Authorize New Developer Account
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  <div className="mt-3 p-4 rounded-lg bg-[#F4F5F7] dark:bg-[#0D0F12] border border-[#E2E5EB] dark:border-[#262B35] text-xs text-[#5A6270] dark:text-slate-400 flex items-start gap-2.5">
+                    <Lock className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
+                    <span>
+                      Locked to the two Main Developer accounts only. Secondary Developers cannot
+                      provision or revoke Developer accounts.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="lg:col-span-7 bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-display font-bold text-base text-[#111318] dark:text-white">
+                    Authorized Developer Registry
+                  </h4>
+                  <span className="text-xs font-mono text-[#B51B27] font-semibold">
+                    2 Permanent Main Developers
+                  </span>
+                </div>
+
+                <div className="divide-y divide-[#E2E5EB] dark:divide-[#262B35] text-xs">
+                  {MAIN_DEVELOPER_EMAILS.map((mainEmail) => (
+                    <div
+                      key={mainEmail}
+                      className="py-3 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                    >
+                      <div>
+                        <div className="font-bold text-[#111318] dark:text-white font-mono">
+                          {mainEmail}
+                        </div>
+                        <div className="font-mono text-[11px] text-[#B51B27] mt-0.5">
+                          Tier 0A · Permanent Main Developer · Exclusive Developer Provisioning
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[#5A6270] dark:text-slate-400 shrink-0">
+                        <Lock className="w-3 h-3" />
+                        <span>Permanent Root</span>
+                      </span>
+                    </div>
+                  ))}
+
+                  {db.roleAssignments
+                    .filter(
+                      (r) =>
+                        r.role === 'developer' &&
+                        !MAIN_DEVELOPER_EMAIL_KEYS.includes(r.id)
+                    )
+                    .map((dev) => (
+                      <div
+                        key={dev.id}
+                        className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                      >
+                        <div>
+                          <div className="font-bold text-[#111318] dark:text-white">
+                            {dev.displayName}{' '}
+                            <span className="font-mono font-normal text-[#5A6270] dark:text-slate-400">
+                              ({dev.email})
+                            </span>
+                          </div>
+                          <div className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                            Tier 0B · Added Developer · {dev.campus || 'Ulterior Engineering HQ'}
+                          </div>
+                        </div>
+                        {isMainDeveloper ? (
+                          <button
+                            type="button"
+                            onClick={() => void onDeleteRole(dev.id)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#B51B27] hover:underline shrink-0 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Revoke Developer</span>
+                          </button>
+                        ) : (
+                          <span className="font-mono text-[11px] text-[#5A6270] dark:text-slate-400">
+                            Main Dev Controlled
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ROW 2: Appoint Program Chair & Company CEO */}
+            <div className="grid lg:grid-cols-12 gap-6">
               <div className="lg:col-span-5 bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-1">
                   <Crown className="w-4 h-4 text-[#B51B27]" />
                   <h4 className="font-display font-bold text-base text-[#111318] dark:text-white">
-                    Appoint Program Chair (Tier 1)
+                    Appoint Program Chair or Company CEO (Tier 1)
                   </h4>
                 </div>
                 <p className="text-xs text-[#5A6270] dark:text-slate-400 mb-4">
-                  Enter the Google email of the person you are appointing as Program Chair. They
-                  will receive full operational access across the site, while Tier 0 root controls
-                  remain strictly locked to the Developer.
+                  Both Program Chair and Company CEO sign in through the dedicated{' '}
+                  <strong>Chair &amp; CEO</strong> login option and share full operational Chair
+                  access across the portal.
                 </p>
 
-                <form onSubmit={handleAppointChair} className="space-y-3 text-xs">
+                <form onSubmit={handleAppointExecutive} className="space-y-3 text-xs">
                   <div>
                     <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-                      Appointed Chair Google Email
+                      Executive Title
+                    </label>
+                    <select
+                      value={execRole}
+                      onChange={(e) => {
+                        const val = e.target.value as 'chair' | 'ceo';
+                        setExecRole(val);
+                        setChairCode(val === 'ceo' ? 'UE-CEO-01' : 'UE-EXCOM-01');
+                      }}
+                      className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+                    >
+                      <option value="chair">Tier 1 · Program Chair (Full Chair Access)</option>
+                      <option value="ceo">Tier 1 · Company CEO (Full Chair Access)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
+                      Authorized Google Email
                     </label>
                     <input
                       type="email"
                       required
                       value={chairEmail}
                       onChange={(e) => setChairEmail(e.target.value)}
-                      placeholder="chair.email@gmail.com"
+                      placeholder={execRole === 'ceo' ? 'ceo@gmail.com' : 'chair.email@gmail.com'}
                       className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
                     />
                   </div>
                   <div>
                     <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-                      Program Chair Full Name
+                      Full Name
                     </label>
                     <input
                       type="text"
                       required
                       value={chairDisplayName}
                       onChange={(e) => setChairDisplayName(e.target.value)}
-                      placeholder="e.g., Md. Adnan Chowdhury Ifti"
+                      placeholder={
+                        execRole === 'ceo'
+                          ? 'Company CEO Full Name'
+                          : 'e.g., Md. Adnan Chowdhury Ifti'
+                      }
                       className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-                        University / Campus
+                        Division / Campus
                       </label>
                       <input
                         type="text"
                         value={chairCampus}
                         onChange={(e) => setChairCampus(e.target.value)}
-                        placeholder="e.g., North South University"
+                        placeholder="Ulterior Engineering"
                         className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
                       />
                     </div>
                     <div>
                       <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-                        ExCom Code
+                        Executive Code
                       </label>
                       <input
                         type="text"
@@ -633,112 +902,205 @@ export function RoleDashboard({
                     type="submit"
                     className="w-full bg-[#B51B27] hover:bg-[#92141E] text-white font-semibold py-2.5 rounded-lg cursor-pointer"
                   >
-                    Appoint Official Program Chair
+                    {execRole === 'ceo'
+                      ? 'Authorize Company CEO Access'
+                      : 'Appoint Official Program Chair'}
                   </button>
                 </form>
               </div>
 
-              {/* Active Chair & Root Authority Registry */}
-              <div className="lg:col-span-7 space-y-6">
-                <div className="bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6">
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    <h4 className="font-display font-bold text-base text-[#111318] dark:text-white">
-                      Developer-Appointed Program Chair(s)
-                    </h4>
-                    <span className="text-xs font-mono text-[#B51B27] font-semibold">
-                      Public Display: {db.chairName}
-                    </span>
-                  </div>
-                  {db.roleAssignments.filter((r) => r.role === 'chair').length === 0 ? (
-                    <p className="text-xs text-[#5A6270] dark:text-slate-400">
-                      No separate Program Chair email has been appointed yet. Use the form on the
-                      left to appoint a Program Chair.
-                    </p>
-                  ) : (
-                    <div className="divide-y divide-[#E2E5EB] dark:divide-[#262B35] text-xs">
-                      {db.roleAssignments
-                        .filter((r) => r.role === 'chair')
-                        .map((chair) => (
-                          <div
-                            key={chair.id}
-                            className="py-3.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                          >
-                            <div>
-                              <div className="font-bold text-[#111318] dark:text-white">
-                                {chair.displayName}{' '}
-                                <span className="font-mono font-normal text-[#5A6270] dark:text-slate-400">
-                                  ({chair.email})
-                                </span>
-                              </div>
-                              <div className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
-                                Tier 1 · Program Chair · Full Operational Access · {chair.campus}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => void onDeleteRole(chair.id)}
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-[#B51B27] hover:underline shrink-0 cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Revoke Chair</span>
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6">
-                  <h4 className="font-display font-bold text-base text-[#111318] dark:text-white mb-3">
-                    Full-Site Authority Matrix
+              <div className="lg:col-span-7 bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                  <h4 className="font-display font-bold text-base text-[#111318] dark:text-white">
+                    Authorized Program Chair &amp; Company CEO Accounts
                   </h4>
-                  <div className="grid sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-4 rounded-lg bg-[#111318] text-white border border-[#262B35]">
-                      <div className="font-mono text-[11px] text-[#B51B27] font-semibold">
-                        TIER 0 · SOLE ROOT CONTROL
-                      </div>
-                      <div className="font-bold mt-1">Platform Developer</div>
-                      <p className="text-slate-300 mt-1 leading-relaxed">
-                        Full site control, exclusively appoints/revokes Program Chair, owns
-                        destructive database permissions &amp; root overrides.
-                      </p>
-                    </div>
-                    <div className="p-4 rounded-lg bg-[#F4F5F7] dark:bg-[#0D0F12] border border-[#E2E5EB] dark:border-[#262B35]">
-                      <div className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">
-                        TIER 1 · APPOINTED FULL ACCESS
-                      </div>
-                      <div className="font-bold text-[#111318] dark:text-white mt-1">
-                        Program Chair
-                      </div>
-                      <p className="text-[#5A6270] dark:text-slate-400 mt-1 leading-relaxed">
-                        Full operational access to Chair, Secretary, Leads 1–5 &amp; CA segments.
-                        Cannot appoint or modify Developer/Chair accounts.
-                      </p>
-                    </div>
-                  </div>
+                  <span className="text-xs font-mono text-[#5A6270] dark:text-slate-400">
+                    Chair: {db.chairName} · CEO: {db.ceoName}
+                  </span>
                 </div>
+                {db.roleAssignments.filter((r) => r.role === 'chair' || r.role === 'ceo')
+                  .length === 0 ? (
+                  <p className="text-xs text-[#5A6270] dark:text-slate-400">
+                    No Program Chair or Company CEO emails have been authorized yet. Use the form
+                    on the left to grant Chair or CEO access.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-[#E2E5EB] dark:divide-[#262B35] text-xs">
+                    {db.roleAssignments
+                      .filter((r) => r.role === 'chair' || r.role === 'ceo')
+                      .map((exec) => (
+                        <div
+                          key={exec.id}
+                          className="py-3.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                        >
+                          <div>
+                            <div className="font-bold text-[#111318] dark:text-white">
+                              {exec.displayName}{' '}
+                              <span className="font-mono font-normal text-[#5A6270] dark:text-slate-400">
+                                ({exec.email})
+                              </span>
+                            </div>
+                            <div className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                              {exec.role === 'ceo'
+                                ? 'Tier 1 · Company CEO · Full Chair Access'
+                                : 'Tier 1 · Program Chair · Full Chair Access'}{' '}
+                              · {exec.campus}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void onDeleteRole(exec.id)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#B51B27] hover:underline shrink-0 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Revoke</span>
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* ==================== DEVELOPER & CHAIR: ACCESS & ROLE MANAGER ==================== */}
+        {/* ==================== DEVELOPER, CHAIR & CEO: RECRUITMENT CONTROLS ==================== */}
+        {isFullAccess && activeSegment === 'recruitment' && (
+          <div className="space-y-6">
+            <div className="bg-[#111318] text-white rounded-xl p-6 border border-[#262B35] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-[#B51B27]">
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Live Recruitment &amp; Application Control Switchboard</span>
+                </div>
+                <h3 className="font-display text-xl font-extrabold mt-1">
+                  Open or Close Applications by Role
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                  Controlled exclusively by Developers, the Program Chair, and the Company CEO.
+                  Closing a position immediately disables its Apply button across the entire website
+                  with a <strong>Recruitment Closed</strong> state and blocks database submissions.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={updatingRecruitment}
+                  onClick={() => void handleBulkRecruitmentUpdate('close-excom')}
+                  className="text-xs font-semibold px-3.5 py-2 rounded-lg border border-slate-700 text-slate-100 hover:border-[#B51B27] disabled:opacity-50 cursor-pointer"
+                >
+                  Close Secretary &amp; All Leads
+                </button>
+                <button
+                  type="button"
+                  disabled={updatingRecruitment}
+                  onClick={() => void handleBulkRecruitmentUpdate('open-all')}
+                  className="text-xs font-semibold px-3.5 py-2 rounded-lg bg-[#B51B27] hover:bg-[#92141E] text-white disabled:opacity-50 cursor-pointer"
+                >
+                  Reopen All Positions
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-[#E2E5EB] dark:border-[#262B35] flex items-center justify-between gap-4">
+                <h4 className="font-display font-bold text-base text-[#111318] dark:text-white">
+                  Individual Position Availability
+                </h4>
+                <span className="text-xs font-mono font-semibold tabular-nums text-[#5A6270] dark:text-slate-400">
+                  {Object.values(db.recruitmentStatus).filter(Boolean).length} of 7 Open
+                </span>
+              </div>
+
+              <div className="divide-y divide-[#E2E5EB] dark:divide-[#262B35]">
+                {RECRUITMENT_ROLE_ITEMS.map((item) => {
+                  const isOpen = db.recruitmentStatus[item.key];
+                  return (
+                    <div
+                      key={item.key}
+                      className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-mono text-[#5A6270] dark:text-slate-400">
+                          {item.tierLabel} · {item.squadLabel}
+                        </div>
+                        <div className="font-display font-bold text-sm text-[#111318] dark:text-white mt-0.5">
+                          {item.roleTitle}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-xs font-mono font-semibold ${
+                            isOpen
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-[#B51B27]'
+                          }`}
+                        >
+                          {isOpen ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Applications Open</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-3.5 h-3.5" />
+                              <span>Recruitment Closed</span>
+                            </>
+                          )}
+                        </span>
+
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={isOpen}
+                          aria-label={`Toggle recruitment for ${item.roleTitle}`}
+                          disabled={updatingRecruitment}
+                          onClick={() => void handleToggleRecruitmentRole(item.key)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                            isOpen
+                              ? 'bg-emerald-600'
+                              : 'bg-[#D0D5DD] dark:bg-[#2E3440]'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              isOpen ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== DEVELOPER, CHAIR & CEO: ACCESS & ROLE MANAGER ==================== */}
         {isFullAccess && activeSegment === 'roles' && (
           <div className="space-y-6">
             <div className="bg-[#111318] text-white rounded-xl p-6 border border-[#262B35] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <div className="text-xs font-mono font-semibold text-[#B51B27]">
-                  {isDeveloper
-                    ? 'Tier 0 · Developer Root Security Control'
+                  {isMainDeveloper
+                    ? 'Tier 0A · Main Developer Root Security Control'
+                    : isDeveloper
+                    ? 'Tier 0B · Developer Security Control'
+                    : user.role === 'ceo'
+                    ? 'Tier 1 · Company CEO Subordinate Role Manager'
                     : 'Tier 1 · Program Chair Subordinate Role Manager'}
                 </div>
                 <h3 className="font-display text-lg font-extrabold mt-0.5">
                   Personal Email Access &amp; Role Assignment Registry
                 </h3>
                 <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-                  {isDeveloper
-                    ? 'As Platform Developer, you can assign or revoke any role including Program Chair, Secretary, Core Team Leads 1–5, and General CAs.'
-                    : 'As Developer-appointed Program Chair, you can assign or revoke Secretary, Core Team Leads 1–5, and General CAs. Developer and Program Chair accounts can only be modified by the Platform Developer.'}
+                  {isMainDeveloper
+                    ? 'As Main Developer, you can assign or revoke any role including secondary Developers, Program Chair, Company CEO, Secretary, Leads 1–5, and General CAs.'
+                    : isDeveloper
+                    ? 'As Developer, you can assign or revoke Program Chair, Company CEO, Secretary, Leads 1–5, and General CAs. Developer accounts are restricted to the two Main Developers.'
+                    : 'As Executive Leadership (Program Chair / Company CEO), you can assign or revoke Secretary, Core Team Leads 1–5, and General CAs. Developer, Chair, and CEO accounts are protected.'}
                 </p>
               </div>
               {isDeveloper && db.roster.length === 0 && (
@@ -798,13 +1160,18 @@ export function RoleDashboard({
                       onChange={(e) => setRoleType(e.target.value as UserRole)}
                       className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
                     >
+                      {isMainDeveloper && (
+                        <option value="developer">
+                          Tier 0 · Platform Developer (Main Dev Only)
+                        </option>
+                      )}
                       {isDeveloper && (
                         <>
-                          <option value="developer">
-                            Tier 0 · Platform Developer (Root Control)
-                          </option>
                           <option value="chair">
-                            Tier 1 · Program Chair (Appointed Full Access)
+                            Tier 1 · Program Chair (Executive Full Access)
+                          </option>
+                          <option value="ceo">
+                            Tier 1 · Company CEO (Executive Full Access)
                           </option>
                         </>
                       )}
@@ -881,14 +1248,17 @@ export function RoleDashboard({
                 <div className="divide-y divide-[#E2E5EB] dark:divide-[#262B35] text-xs">
                   {db.roleAssignments.length === 0 ? (
                     <p className="text-[#5A6270] dark:text-slate-400">
-                      Only the bootstrapped Platform Developer account is active. Appoint a Program
-                      Chair, Secretary, Core Team Leads, or Ambassadors using the form.
+                      Only the permanent Main Developer accounts are active. Authorize a Program
+                      Chair, Company CEO, Secretary, Core Team Leads, or Ambassadors using the form.
                     </p>
                   ) : (
                     db.roleAssignments.map((ra) => {
                       const isSelf = ra.email.toLowerCase() === user.email.toLowerCase();
-                      const isProtectedFromChair =
-                        !isDeveloper && (ra.role === 'developer' || ra.role === 'chair');
+                      const isMainDevRecord = MAIN_DEVELOPER_EMAIL_KEYS.includes(ra.id);
+                      const isProtected =
+                        isMainDevRecord ||
+                        (ra.role === 'developer' && !isMainDeveloper) ||
+                        (!isDeveloper && (ra.role === 'chair' || ra.role === 'ceo'));
                       return (
                         <div
                           key={ra.id}
@@ -906,9 +1276,13 @@ export function RoleDashboard({
                               {ra.caCode ? ` · ${ra.caCode}` : ''}
                             </div>
                           </div>
-                          {isProtectedFromChair ? (
+                          {isProtected ? (
                             <span className="font-mono text-[11px] text-[#5A6270] dark:text-slate-400 shrink-0">
-                              Developer Protected
+                              {isMainDevRecord
+                                ? 'Permanent Main Dev'
+                                : ra.role === 'developer'
+                                ? 'Main Dev Protected'
+                                : 'Developer Protected'}
                             </span>
                           ) : (
                             !isSelf && (

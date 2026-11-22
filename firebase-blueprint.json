@@ -2,7 +2,7 @@
   "entities": {
     "ProgramSettings": {
       "title": "ProgramSettings",
-      "description": "Global KPI point weights and acting secretary display metadata.",
+      "description": "Global KPI point weights, leadership display metadata, and granular recruitment open/close switches.",
       "type": "object",
       "properties": {
         "workshopReg": { "type": "number", "description": "Points per verified workshop registration" },
@@ -11,19 +11,24 @@
         "clubEvent": { "type": "number", "description": "Points per club event" },
         "certThreshold": { "type": "number", "description": "Minimum points required for certificate eligibility" },
         "secretaryName": { "type": "string", "minLength": 2, "maxLength": 120 },
-        "chairName": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Display name of the Program Chair appointed by the Platform Developer" },
+        "chairName": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Display name of the Program Chair appointed by Platform Developer" },
+        "ceoName": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Display name of the Company CEO authorized for Chair executive access" },
+        "recruitmentStatus": {
+          "type": "object",
+          "description": "Granular boolean map controlling open/closed recruitment status for secretary, lead1-lead5, and ca."
+        },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["workshopReg", "techLead", "brandPost", "clubEvent", "certThreshold", "secretaryName", "updatedAt"]
     },
     "RoleAssignment": {
       "title": "RoleAssignment",
-      "description": "Personal email-to-role RBAC assignment. Only Platform Developer can appoint/revoke Developer and Program Chair roles; Chair can assign subordinate ExCom/CA roles.",
+      "description": "Personal email-to-role RBAC assignment. Only the two Main Developers can add/revoke Developers; Developers appoint/revoke Program Chair and Company CEO; Chair & CEO manage subordinate ExCom/CA roles.",
       "type": "object",
       "properties": {
         "email": { "type": "string", "format": "email", "minLength": 5, "maxLength": 160 },
         "displayName": { "type": "string", "minLength": 2, "maxLength": 120 },
-        "role": { "type": "string", "enum": ["developer", "chair", "secretary", "lead1", "lead2", "lead3", "lead4", "lead5", "ca"] },
+        "role": { "type": "string", "enum": ["developer", "chair", "ceo", "secretary", "lead1", "lead2", "lead3", "lead4", "lead5", "ca"] },
         "squad": { "type": "string", "enum": ["ALL", "Squad A", "Squad B", "Squad C", "Squad D", "Squad E"] },
         "caCode": { "type": "string", "maxLength": 32, "pattern": "^[A-Z0-9\\-]*$" },
         "campus": { "type": "string", "maxLength": 120 },
@@ -84,7 +89,7 @@
     },
     "ActivitySubmission": {
       "title": "ActivitySubmission",
-      "description": "Ambassador KPI proof submission reviewed by the assigned Squad Core Lead, Secretary, or Chair.",
+      "description": "Ambassador KPI proof submission reviewed by the assigned Squad Core Lead, Secretary, Chair, CEO, or Developer.",
       "type": "object",
       "properties": {
         "caCode": { "type": "string", "minLength": 3, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
@@ -102,7 +107,7 @@
     },
     "TechLeadTicket": {
       "title": "TechLeadTicket",
-      "description": "FYDP or engineering hardware project lead tracked by Lead 3 (Tech Lead-Gen), Secretary, and Chair.",
+      "description": "FYDP or engineering hardware project lead tracked by Lead 3 (Tech Lead-Gen), Secretary, Chair, CEO, and Developer.",
       "type": "object",
       "properties": {
         "title": { "type": "string", "minLength": 3, "maxLength": 160 },
@@ -118,7 +123,7 @@
     },
     "CampaignKit": {
       "title": "CampaignKit",
-      "description": "Official campaign copy and outreach templates published by Chair, Secretary, or Lead 4 (Brand & PR).",
+      "description": "Official campaign copy and outreach templates published by Developer, Chair, CEO, Secretary, or Lead 4 (Brand & PR).",
       "type": "object",
       "properties": {
         "title": { "type": "string", "minLength": 3, "maxLength": 160 },
@@ -132,11 +137,22 @@
     },
     "RecruitmentApplication": {
       "title": "RecruitmentApplication",
-      "description": "Private candidate recruitment application reviewed by Program Chair and Secretary.",
+      "description": "Private candidate recruitment application reviewed by Developer, Chair, CEO, and Secretary; creation requires the target role to be open in settings/program.",
       "type": "object",
       "properties": {
         "name": { "type": "string", "minLength": 2, "maxLength": 120 },
-        "role": { "type": "string", "minLength": 3, "maxLength": 100 },
+        "role": {
+          "type": "string",
+          "enum": [
+            "Program Secretary",
+            "Operations & CA HR Lead",
+            "Workshop & Course Growth Lead",
+            "Technical Project & Lead-Gen Lead",
+            "Brand & Digital Publicity Lead",
+            "Campus Partnerships & Events Lead",
+            "General Campus Ambassador"
+          ]
+        },
         "campus": { "type": "string", "minLength": 2, "maxLength": 120 },
         "squad": { "type": "string", "enum": ["Squad A", "Squad B", "Squad C", "Squad D", "Squad E"] },
         "email": { "type": "string", "format": "email", "minLength": 5, "maxLength": 160 },
@@ -150,7 +166,7 @@
     },
     "CertificateRecord": {
       "title": "CertificateRecord",
-      "description": "Official LinkedIn-verifiable credential issued and managed by Program Chair.",
+      "description": "Official LinkedIn-verifiable credential issued and managed by Developer, Program Chair, or Company CEO.",
       "type": "object",
       "properties": {
         "holder": { "type": "string", "minLength": 2, "maxLength": 120 },
@@ -164,7 +180,7 @@
     },
     "ClubPitch": {
       "title": "ClubPitch",
-      "description": "University club partnership or seminar proposal routed to Lead 5, Secretary, and Chair.",
+      "description": "University club partnership or seminar proposal routed to Lead 5, Secretary, Chair, CEO, and Developer.",
       "type": "object",
       "properties": {
         "club": { "type": "string", "minLength": 2, "maxLength": 120 },
@@ -183,11 +199,11 @@
   "firestore": {
     "/settings/{settingId}": {
       "schema": { "$ref": "#/entities/ProgramSettings" },
-      "description": "Global KPI weights and program configuration (doc ID: program)."
+      "description": "Global KPI weights, leadership display names, and granular recruitment open/close switches (doc ID: program)."
     },
     "/role_assignments/{emailKey}": {
       "schema": { "$ref": "#/entities/RoleAssignment" },
-      "description": "Personal email-based RBAC role registry controlled exclusively by Program Chair."
+      "description": "Personal email-based RBAC role registry (Main Developer controls Developers; Developers control Chair & CEO; Chair & CEO control subordinate roles)."
     },
     "/ambassadors/{ambassadorId}": {
       "schema": { "$ref": "#/entities/Ambassador" },
@@ -199,7 +215,7 @@
     },
     "/workshop_registrations/{regId}": {
       "schema": { "$ref": "#/entities/WorkshopRegistration" },
-      "description": "Private participant workshop registrations accessible to Chair, Secretary, Lead 2, or registrant."
+      "description": "Private participant workshop registrations accessible to Developer, Chair, CEO, Secretary, Lead 2, or registrant."
     },
     "/submissions/{submissionId}": {
       "schema": { "$ref": "#/entities/ActivitySubmission" },
@@ -207,23 +223,23 @@
     },
     "/tech_pipeline/{ticketId}": {
       "schema": { "$ref": "#/entities/TechLeadTicket" },
-      "description": "FYDP and engineering hardware project leads scoped to Chair, Secretary, Lead 3, or submitter."
+      "description": "FYDP and engineering hardware project leads scoped to Developer, Chair, CEO, Secretary, Lead 3, or submitter."
     },
     "/campaign_kits/{kitId}": {
       "schema": { "$ref": "#/entities/CampaignKit" },
-      "description": "Official campaign kits readable by assigned team members and writable by Chair, Secretary, or Lead 4."
+      "description": "Official campaign kits readable by assigned team members and writable by Developer, Chair, CEO, Secretary, or Lead 4."
     },
     "/applications/{applicationId}": {
       "schema": { "$ref": "#/entities/RecruitmentApplication" },
-      "description": "Private recruitment applications containing candidate emails, accessible to Chair, Secretary, or applicant."
+      "description": "Private recruitment applications containing candidate emails, guarded by live recruitmentStatus toggles on create."
     },
     "/certificates/{certificateId}": {
       "schema": { "$ref": "#/entities/CertificateRecord" },
-      "description": "Verifiable certificates lookup by document ID; managed exclusively by Chair."
+      "description": "Verifiable certificates lookup by document ID; managed by Developer, Program Chair, or Company CEO."
     },
     "/club_pitches/{pitchId}": {
       "schema": { "$ref": "#/entities/ClubPitch" },
-      "description": "University club partnership proposals accessible to Chair, Secretary, Lead 5, or submitter."
+      "description": "University club partnership proposals accessible to Developer, Chair, CEO, Secretary, Lead 5, or submitter."
     }
   }
 }

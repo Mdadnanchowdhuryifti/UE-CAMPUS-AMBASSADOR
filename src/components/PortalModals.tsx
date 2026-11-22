@@ -1,23 +1,49 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { BookOpen, Lock, ShieldCheck, Terminal, X } from 'lucide-react';
-import { KpiWeights, PortalUser, SquadName, Workshop } from '../types';
+import {
+  AlertCircle,
+  BookOpen,
+  Crown,
+  Lock,
+  ShieldCheck,
+  Terminal,
+  X,
+} from 'lucide-react';
+import { RECRUITMENT_ROLE_ITEMS } from '../data/playbook';
+import {
+  getFirstOpenRecruitmentRoleTitle,
+  hasAnyOpenRecruitmentRole,
+  isRoleOpenForRecruitment,
+} from '../services/portalService';
+import {
+  AuthSignInMode,
+  KpiWeights,
+  PortalUser,
+  RecruitmentStatusMap,
+  SquadName,
+  Workshop,
+} from '../types';
 
 interface AuthModalProps {
   open: boolean;
-  initialMode?: 'standard' | 'developer';
+  initialMode?: AuthSignInMode;
   signingIn: boolean;
+  authError: string | null;
+  onClearError: () => void;
   onClose: () => void;
-  onGoogleSignIn: (intent?: 'standard' | 'developer') => Promise<void>;
+  onGoogleSignIn: (intent?: AuthSignInMode, emailHint?: string) => Promise<void>;
 }
 
 export function AuthModal({
   open,
   initialMode = 'standard',
   signingIn,
+  authError,
+  onClearError,
   onClose,
   onGoogleSignIn,
 }: AuthModalProps) {
-  const [mode, setMode] = useState<'standard' | 'developer'>(initialMode);
+  const [mode, setMode] = useState<AuthSignInMode>(initialMode);
+  const [execEmailHint, setExecEmailHint] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -26,6 +52,11 @@ export function AuthModal({
   }, [open, initialMode]);
 
   if (!open) return null;
+
+  const handleTabSwitch = (nextMode: AuthSignInMode) => {
+    setMode(nextMode);
+    onClearError();
+  };
 
   return (
     <div
@@ -39,7 +70,9 @@ export function AuthModal({
           <div>
             <div className="text-xs font-mono font-semibold text-[#B51B27]">
               {mode === 'developer'
-                ? 'Tier 0 · Platform Developer Root Auth'
+                ? 'Tier 0 · Main Developer Root Auth'
+                : mode === 'executive'
+                ? 'Tier 1 · Chair & Company CEO Auth'
                 : 'Personal Verified Sign In'}
             </div>
             <h3
@@ -59,58 +92,82 @@ export function AuthModal({
           </button>
         </div>
 
-        {/* Mode Switcher: Personal Portal vs Developer Root Sign In */}
+        {/* 3-Mode Segmented Switcher: ExCom & CA | Chair & CEO | Developer Root */}
         <div
           role="tablist"
           aria-label="Sign in mode"
-          className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4F5F7] dark:bg-[#0D0F12] border border-[#E2E5EB] dark:border-[#262B35]"
+          className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-[#F4F5F7] dark:bg-[#0D0F12] border border-[#E2E5EB] dark:border-[#262B35]"
         >
           <button
             type="button"
             role="tab"
             aria-selected={mode === 'standard'}
-            onClick={() => setMode('standard')}
-            className={`py-2 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+            onClick={() => handleTabSwitch('standard')}
+            className={`py-2 px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               mode === 'standard'
                 ? 'bg-white dark:bg-[#15181E] text-[#111318] dark:text-white shadow-sm'
                 : 'text-[#5A6270] dark:text-slate-400 hover:text-[#111318] dark:hover:text-white'
             }`}
           >
-            ExCom &amp; CA Sign In
+            ExCom &amp; CA
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'executive'}
+            onClick={() => handleTabSwitch('executive')}
+            className={`py-2 px-2 rounded-lg text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1 cursor-pointer ${
+              mode === 'executive'
+                ? 'bg-[#B51B27] text-white shadow-sm'
+                : 'text-[#5A6270] dark:text-slate-400 hover:text-[#111318] dark:hover:text-white'
+            }`}
+          >
+            <Crown className="w-3.5 h-3.5 shrink-0" />
+            <span>Chair &amp; CEO</span>
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={mode === 'developer'}
-            onClick={() => setMode('developer')}
-            className={`py-2 px-3 rounded-lg text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer ${
+            onClick={() => handleTabSwitch('developer')}
+            className={`py-2 px-2 rounded-lg text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1 cursor-pointer ${
               mode === 'developer'
                 ? 'bg-[#111318] text-white shadow-sm'
                 : 'text-[#5A6270] dark:text-slate-400 hover:text-[#111318] dark:hover:text-white'
             }`}
           >
-            <Terminal className="w-3.5 h-3.5 text-[#B51B27]" />
-            <span>Developer Sign In</span>
+            <Terminal className="w-3.5 h-3.5 text-[#B51B27] shrink-0" />
+            <span>Developer</span>
           </button>
         </div>
+
+        {authError && (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs text-red-800 dark:text-red-200"
+          >
+            <AlertCircle className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
+            <span>{authError}</span>
+          </div>
+        )}
 
         {mode === 'developer' ? (
           <div className="space-y-4">
             <div className="bg-[#111318] text-white rounded-xl p-5 border border-[#262B35] space-y-3">
               <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-[#B51B27]">
                 <Terminal className="w-4 h-4" />
-                <span>Tier 0 · Sole Root Full Control</span>
+                <span>Tier 0 · Locked Main Developer Access</span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Reserved exclusively for the verified Platform Developer account. Only the
-                Developer holds supreme full control across the entire site, appoints or revokes
-                the <strong className="text-white">Program Chair</strong>, and manages root
-                database governance.
+                Strictly restricted to the two verified{' '}
+                <strong className="text-white">Main Developer</strong> accounts or secondary
+                Developers explicitly provisioned by them. Any other email is automatically
+                rejected.
               </p>
               <ul className="text-[11px] font-mono text-slate-400 space-y-1.5 pt-1">
-                <li>• Appoint, replace, or revoke Program Chair (Developer-exclusive)</li>
-                <li>• Full access to Developer Root, Chair, Secretary, Leads 1–5 &amp; CA portals</li>
-                <li>• Protected by Firestore security rules — cannot be overridden by Chair</li>
+                <li>• Only the 2 Main Developers can add or revoke Developer accounts</li>
+                <li>• Appoint or revoke Program Chair &amp; Company CEO emails</li>
+                <li>• Control recruitment open/close switches &amp; full site governance</li>
               </ul>
             </div>
 
@@ -122,19 +179,73 @@ export function AuthModal({
             >
               <Terminal className="w-4 h-4" />
               <span>
-                {signingIn ? 'Verifying Developer Clearance...' : 'Sign In as Platform Developer (Google)'}
+                {signingIn
+                  ? 'Verifying Developer Clearance...'
+                  : 'Sign In to Developer Mode (Google)'}
               </span>
             </button>
+          </div>
+        ) : mode === 'executive' ? (
+          <div className="space-y-4">
+            <div className="bg-[#F4F5F7] dark:bg-[#0D0F12] rounded-xl p-5 border border-[#E2E5EB] dark:border-[#262B35] space-y-2.5">
+              <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-[#B51B27]">
+                <Crown className="w-4 h-4" />
+                <span>Tier 1 · Program Chair &amp; Company CEO</span>
+              </div>
+              <p className="text-xs text-[#5A6270] dark:text-slate-300 leading-relaxed">
+                Dedicated executive gateway for the Developer-appointed{' '}
+                <strong className="text-[#111318] dark:text-white">Program Chair</strong> and{' '}
+                <strong className="text-[#111318] dark:text-white">Company CEO</strong>. Both hold
+                full operational Chair access, including opening/closing recruitment for Secretary,
+                Core Team Leads 1–5, and General CAs.
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void onGoogleSignIn('executive', execEmailHint.trim() || undefined);
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div>
+                <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
+                  Authorized Chair / Company CEO Email{' '}
+                  <span className="font-normal text-[#5A6270] dark:text-slate-400">
+                    (Optional account pre-fill)
+                  </span>
+                </label>
+                <input
+                  type="email"
+                  value={execEmailHint}
+                  onChange={(e) => setExecEmailHint(e.target.value)}
+                  placeholder="chair.or.ceo@gmail.com"
+                  className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={signingIn}
+                className="w-full inline-flex items-center justify-center gap-2.5 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white text-sm font-semibold py-3 px-5 rounded-xl transition-colors cursor-pointer"
+              >
+                <Crown className="w-4 h-4" />
+                <span>
+                  {signingIn
+                    ? 'Verifying Chair / CEO Email...'
+                    : 'Sign In as Chair or Company CEO (Google)'}
+                </span>
+              </button>
+            </form>
           </div>
         ) : (
           <>
             <p className="text-xs text-[#5A6270] dark:text-slate-300 leading-relaxed">
-              Sign in with your personal Google account. Only the{' '}
-              <strong className="text-[#111318] dark:text-white">Platform Developer</strong> and{' '}
-              <strong className="text-[#111318] dark:text-white">
-                Developer-appointed Program Chair
-              </strong>{' '}
-              have full-site access. Every other role is strictly locked to its segment:
+              Sign in with your personal Google account. Only authorized{' '}
+              <strong className="text-[#111318] dark:text-white">Developers</strong>,{' '}
+              <strong className="text-[#111318] dark:text-white">Program Chair</strong>, and{' '}
+              <strong className="text-[#111318] dark:text-white">Company CEO</strong> have
+              full-site operational access. Every other role is strictly locked to its segment:
             </p>
 
             <div className="divide-y divide-[#E2E5EB] dark:divide-[#262B35] text-xs border border-[#E2E5EB] dark:border-[#262B35] rounded-xl px-4">
@@ -142,11 +253,11 @@ export function AuthModal({
                 <ShieldCheck className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
                 <div>
                   <div className="font-semibold text-[#111318] dark:text-white">
-                    Tier 1 · Program Chair (Appointed by Developer · Full Site Access)
+                    Tier 1 · Program Chair &amp; Company CEO (Full Operational Access)
                   </div>
                   <div className="text-[#5A6270] dark:text-slate-400">
-                    Full operational access to every ExCom hub, Leads 1–5, KPI weights,
-                    certificates, and assigning Secretary / Lead / CA roles.
+                    Full executive access to recruitment switches, KPI weights, certificates,
+                    ExCom hubs, Leads 1–5, and subordinate role management.
                   </div>
                 </div>
               </div>
@@ -216,6 +327,7 @@ interface ApplyModalProps {
   open: boolean;
   defaultRole: string;
   defaultSquad: SquadName;
+  recruitmentStatus: RecruitmentStatusMap;
   currentUser: PortalUser | null;
   onRequireSignIn: () => Promise<void>;
   onClose: () => void;
@@ -233,6 +345,7 @@ export function ApplyModal({
   open,
   defaultRole,
   defaultSquad,
+  recruitmentStatus,
   currentUser,
   onRequireSignIn,
   onClose,
@@ -245,20 +358,27 @@ export function ApplyModal({
   const [exp, setExp] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const anyOpen = hasAnyOpenRecruitmentRole(recruitmentStatus);
+  const selectedRoleOpen = isRoleOpenForRecruitment(recruitmentStatus, role);
+
   useEffect(() => {
     if (open) {
-      setRole(defaultRole);
+      const nextRole = isRoleOpenForRecruitment(recruitmentStatus, defaultRole)
+        ? defaultRole
+        : getFirstOpenRecruitmentRoleTitle(recruitmentStatus) || defaultRole;
+      setRole(nextRole);
       setSquad(defaultSquad);
       if (currentUser?.displayName && !name) {
         setName(currentUser.displayName);
       }
     }
-  }, [open, defaultRole, defaultSquad, currentUser]);
+  }, [open, defaultRole, defaultSquad, currentUser, recruitmentStatus]);
 
   if (!open) return null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!anyOpen || !selectedRoleOpen) return;
     if (!currentUser) {
       await onRequireSignIn();
       return;
@@ -311,131 +431,162 @@ export function ApplyModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
-          <div>
-            <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-              Applying For (Tier / Role)
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+        {!anyOpen ? (
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-4 rounded-xl bg-[#F4F5F7] dark:bg-[#0D0F12] border border-[#E2E5EB] dark:border-[#262B35] flex items-start gap-3">
+              <Lock className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="font-bold text-[#111318] dark:text-white">
+                  Recruitment Cycle Currently Closed
+                </div>
+                <p className="text-[#5A6270] dark:text-slate-400 leading-relaxed">
+                  Applications for Program Secretary, Core Team Leads 1–5, and General Campus
+                  Ambassadors have been closed by Ulterior Engineering leadership. Please check
+                  back for the next recruitment window.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 rounded-lg border border-[#E2E5EB] dark:border-[#262B35] font-semibold text-[#111318] dark:text-white cursor-pointer"
             >
-              <option value="Program Secretary">Tier 2 · Program Secretary</option>
-              <option value="Operations & CA HR Lead">
-                Tier 3 · Operations &amp; CA HR Lead (Squad A)
-              </option>
-              <option value="Workshop & Course Growth Lead">
-                Tier 3 · Workshop &amp; Course Growth Lead (Squad B)
-              </option>
-              <option value="Technical Project & Lead-Gen Lead">
-                Tier 3 · Technical Project &amp; Lead-Gen Lead (Squad C)
-              </option>
-              <option value="Brand & Digital Publicity Lead">
-                Tier 3 · Brand &amp; Digital Publicity Lead (Squad D)
-              </option>
-              <option value="Campus Partnerships & Events Lead">
-                Tier 3 · Campus Partnerships &amp; Events Lead (Squad E)
-              </option>
-              <option value="General Campus Ambassador">
-                Tier 4 · General Campus Ambassador
-              </option>
-            </select>
+              Close
+            </button>
           </div>
-
-          <div className="grid sm:grid-cols-2 gap-3">
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
             <div>
               <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-                Full Name
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your full name"
-                className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-                University / Institute
-              </label>
-              <input
-                type="text"
-                required
-                value={campus}
-                onChange={(e) => setCampus(e.target.value)}
-                placeholder="e.g., NSU, BUET, CUET"
-                className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
-              />
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-                Target Squad Cluster
+                Applying For (Tier / Role)
               </label>
               <select
-                value={squad}
-                onChange={(e) => setSquad(e.target.value as SquadName)}
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
                 className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
               >
-                <option value="Squad A">Squad A · Dhaka Zone A (Private)</option>
-                <option value="Squad B">Squad B · Dhaka Zone B (Central/Public)</option>
-                <option value="Squad C">Squad C · Engineering &amp; Tech Hub</option>
-                <option value="Squad D">Squad D · Regional General Univ</option>
-                <option value="Squad E">Squad E · Polytechnic &amp; Emerging</option>
+                {RECRUITMENT_ROLE_ITEMS.map((item) => {
+                  const isOpen = recruitmentStatus[item.key];
+                  return (
+                    <option
+                      key={item.key}
+                      value={item.roleTitle}
+                      disabled={!isOpen}
+                    >
+                      {item.tierLabel.split('·')[0].trim()} · {item.roleTitle} ({item.squadLabel})
+                      {!isOpen ? ' — Recruitment Closed' : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
+
+            {!selectedRoleOpen && (
+              <div className="p-3 rounded-lg bg-[#F4F5F7] dark:bg-[#0D0F12] border border-[#E2E5EB] dark:border-[#262B35] text-[#5A6270] dark:text-slate-400 flex items-center gap-2">
+                <Lock className="w-3.5 h-3.5 text-[#B51B27] shrink-0" />
+                <span>Recruitment for this position is currently closed. Select an open position above.</span>
+              </div>
+            )}
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your full name"
+                  className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
+                  University / Institute
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={campus}
+                  onChange={(e) => setCampus(e.target.value)}
+                  placeholder="e.g., NSU, BUET, CUET"
+                  className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+                />
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
+                  Target Squad Cluster
+                </label>
+                <select
+                  value={squad}
+                  onChange={(e) => setSquad(e.target.value as SquadName)}
+                  className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+                >
+                  <option value="Squad A">Squad A · Dhaka Zone A (Private)</option>
+                  <option value="Squad B">Squad B · Dhaka Zone B (Central/Public)</option>
+                  <option value="Squad C">Squad C · Engineering &amp; Tech Hub</option>
+                  <option value="Squad D">Squad D · Regional General Univ</option>
+                  <option value="Squad E">Squad E · Polytechnic &amp; Emerging</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
+                  Verified Account Email
+                </label>
+                <input
+                  type="email"
+                  readOnly
+                  value={currentUser ? currentUser.email : 'Sign in with Google below'}
+                  className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#5A6270] dark:text-slate-400 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-                Verified Account Email
+                Prior Club / Leadership Experience &amp; Month-1 Plan
               </label>
-              <input
-                type="email"
-                readOnly
-                value={currentUser ? currentUser.email : 'Sign in with Google below'}
-                className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#5A6270] dark:text-slate-400 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+              <textarea
+                rows={3}
+                required
+                minLength={5}
+                value={exp}
+                onChange={(e) => setExp(e.target.value)}
+                placeholder="Mention IEEE, Robotics, EEE/CSE club leadership and how you would grow Ulterior Engineering on campus..."
+                className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-              Prior Club / Leadership Experience &amp; Month-1 Plan
-            </label>
-            <textarea
-              rows={3}
-              required
-              minLength={5}
-              value={exp}
-              onChange={(e) => setExp(e.target.value)}
-              placeholder="Mention IEEE, Robotics, EEE/CSE club leadership and how you would grow Ulterior Engineering on campus..."
-              className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full inline-flex items-center justify-center gap-2 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
-          >
-            {currentUser ? (
-              <span>
-                {submitting
-                  ? 'Saving Application...'
-                  : 'Submit Application to Program Chair & Secretary'}
-              </span>
-            ) : (
-              <>
-                <Lock className="w-3.5 h-3.5" />
-                <span>Sign in with Google to Submit Application</span>
-              </>
-            )}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={submitting || !selectedRoleOpen}
+              className="w-full inline-flex items-center justify-center gap-2 bg-[#B51B27] hover:bg-[#92141E] disabled:bg-[#E2E5EB] dark:disabled:bg-[#1E222B] disabled:text-[#5A6270] disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
+            >
+              {!selectedRoleOpen ? (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Recruitment Closed for Selected Role</span>
+                </>
+              ) : currentUser ? (
+                <span>
+                  {submitting
+                    ? 'Saving Application...'
+                    : 'Submit Application to Chair, CEO & Secretary'}
+                </span>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Sign in with Google to Submit Application</span>
+                </>
+              )}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -750,8 +901,8 @@ export function PlaybookGuideDrawer({
     {
       id: 'access',
       label: 'Personal Access',
-      title: 'Developer Root & Role-Isolated Sign In',
-      body: 'Only the Platform Developer (Tier 0) holds sole root control and appoints or revokes the Program Chair. Both Developer and the appointed Chair can access all program workspaces, while the Secretary, Core Leads 1–5, and General CAs are strictly locked to their own assigned segment.',
+      title: 'Main Developer Lock & Executive Governance',
+      body: 'Only the two verified Main Developers hold permanent Tier 0 Root authority and can add or revoke Developers. Developers appoint the Program Chair and Company CEO, who share full operational Chair access (including opening/closing recruitment toggles). Secretary, Core Leads 1–5, and General CAs remain locked to their own segments.',
     },
     {
       id: 'kpi',

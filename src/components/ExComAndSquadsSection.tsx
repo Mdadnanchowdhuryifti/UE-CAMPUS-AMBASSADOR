@@ -6,7 +6,11 @@ import {
   SQUAD_NAMES,
   SQUADS_META,
 } from '../data/playbook';
-import { isFullAccessRole } from '../services/portalService';
+import {
+  getFirstOpenRecruitmentRoleTitle,
+  hasAnyOpenRecruitmentRole,
+  isFullAccessRole,
+} from '../services/portalService';
 import { PortalDB, PortalUser, SquadName } from '../types';
 
 interface ExComAndSquadsSectionProps {
@@ -14,6 +18,7 @@ interface ExComAndSquadsSectionProps {
   currentUser: PortalUser | null;
   onApply: (role: string, squad?: SquadName) => void;
   onOpenPersonalPortal: () => void;
+  onOpenExecutivePortal: () => void;
 }
 
 export function ExComAndSquadsSection({
@@ -21,6 +26,7 @@ export function ExComAndSquadsSection({
   currentUser,
   onApply,
   onOpenPersonalPortal,
+  onOpenExecutivePortal,
 }: ExComAndSquadsSectionProps) {
   const [activeSquad, setActiveSquad] = useState<SquadName>('Squad A');
 
@@ -53,50 +59,65 @@ export function ExComAndSquadsSection({
                 Program Leadership &amp; Role-Locked Portals
               </h2>
             </div>
-            <button
-              type="button"
-              onClick={() => onApply('Operations & CA HR Lead')}
-              className="self-start md:self-auto inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg border border-[#B51B27] text-[#B51B27] hover:bg-[#B51B27] hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <span>View Recruitment Circular &amp; Apply</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
+            {hasAnyOpenRecruitmentRole(db.recruitmentStatus) ? (
+              <button
+                type="button"
+                onClick={() =>
+                  onApply(
+                    getFirstOpenRecruitmentRoleTitle(db.recruitmentStatus) ||
+                      'General Campus Ambassador'
+                  )
+                }
+                className="self-start md:self-auto inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg border border-[#B51B27] text-[#B51B27] hover:bg-[#B51B27] hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <span>View Recruitment Circular &amp; Apply</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="self-start md:self-auto inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg border border-[#D0D5DD] dark:border-[#2E3440] bg-[#E2E5EB] dark:bg-[#1E222B] text-[#5A6270] dark:text-slate-400 whitespace-nowrap shrink-0 cursor-not-allowed"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>All Recruitment Closed</span>
+              </button>
+            )}
           </div>
 
           {/* Tier 1 + Tier 2 Leadership Row */}
           <div className="grid md:grid-cols-2 gap-6 mb-10">
-            {/* Program Chair */}
+            {/* Program Chair & Company CEO */}
             <div className="bg-[#F4F5F7] dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start">
               <div className="w-14 h-14 rounded-lg bg-[#111318] text-white flex items-center justify-center font-display font-extrabold text-lg shrink-0">
-                AC
+                EX
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[#5A6270] dark:text-slate-400">
                   <span className="font-semibold text-[#111318] dark:text-white">
-                    Tier 1 · Program Chair
+                    Tier 1 · Program Chair &amp; Company CEO
                   </span>
                   <span aria-hidden="true">·</span>
                   <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                    Appointed by Developer · Full Access
+                    Full Executive Access
                   </span>
-                  <span aria-hidden="true">·</span>
-                  <span>UE-EXCOM-01</span>
                 </div>
                 <h3 className="font-display text-lg font-extrabold mt-2 text-[#111318] dark:text-white">
                   {db.chairName}
                 </h3>
                 <p className="text-xs text-[#5A6270] dark:text-slate-400 mt-0.5">
-                  Campus Ambassador Lead · Appointed by Platform Developer
+                  Program Chair · Company CEO Oversight: <strong className="text-[#111318] dark:text-slate-200">{db.ceoName}</strong>
                 </p>
                 <p className="text-xs text-[#5A6270] dark:text-slate-300 mt-3 leading-relaxed">
-                  Translates Ulterior Engineering management goals into nationwide campus campaigns,
-                  manages ExCom &amp; Lead operations, approves credentials, and oversees all squads
-                  under Developer governance.
+                  Both the Developer-appointed Program Chair and Company CEO share full operational
+                  authority over recruitment open/close controls, ExCom operations, credentials, and
+                  all squads.
                 </p>
                 <div className="mt-4">
                   <button
                     type="button"
-                    onClick={onOpenPersonalPortal}
+                    onClick={canAccessChair ? onOpenPersonalPortal : onOpenExecutivePortal}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#B51B27] hover:underline cursor-pointer"
                   >
                     {canAccessChair ? (
@@ -104,6 +125,8 @@ export function ExComAndSquadsSection({
                         <span>
                           {currentUser?.role === 'developer'
                             ? 'Open Developer & Chair Console'
+                            : currentUser?.role === 'ceo'
+                            ? 'Open CEO Executive Console'
                             : 'Open Chair Master Console'}
                         </span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -111,7 +134,7 @@ export function ExComAndSquadsSection({
                     ) : (
                       <>
                         <Lock className="w-3.5 h-3.5" />
-                        <span>Developer / Chair Sign-In Only</span>
+                        <span>Chair &amp; CEO Email Sign-In</span>
                       </>
                     )}
                   </button>
@@ -145,14 +168,26 @@ export function ExComAndSquadsSection({
                   central campaign broadcasts, and prepares Chair sync CSV exports.
                 </p>
                 <div className="flex flex-wrap items-center gap-4 mt-4">
-                  <button
-                    type="button"
-                    onClick={() => onApply('Program Secretary')}
-                    className="inline-flex items-center gap-1.5 bg-[#B51B27] hover:bg-[#92141E] text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    <span>Apply as Secretary</span>
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </button>
+                  {db.recruitmentStatus.secretary ? (
+                    <button
+                      type="button"
+                      onClick={() => onApply('Program Secretary')}
+                      className="inline-flex items-center gap-1.5 bg-[#B51B27] hover:bg-[#92141E] text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <span>Apply as Secretary</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      aria-disabled="true"
+                      className="inline-flex items-center gap-1.5 bg-[#E2E5EB] dark:bg-[#1E222B] text-[#5A6270] dark:text-slate-400 border border-[#D0D5DD] dark:border-[#2E3440] px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-not-allowed"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Recruitment Closed</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={onOpenPersonalPortal}
@@ -214,7 +249,7 @@ export function ExComAndSquadsSection({
                         <span>Open Lead {lead.num} Segment</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
-                    ) : (
+                    ) : db.recruitmentStatus[lead.id] ? (
                       <button
                         type="button"
                         onClick={() => onApply(lead.title, lead.squad)}
@@ -222,6 +257,16 @@ export function ExComAndSquadsSection({
                       >
                         <span>Apply for Lead {lead.num}</span>
                         <ArrowUpRight className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        aria-disabled="true"
+                        className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold py-2 px-3 rounded-lg bg-[#E2E5EB] dark:bg-[#1E222B] border border-[#D0D5DD] dark:border-[#2E3440] text-[#5A6270] dark:text-slate-400 cursor-not-allowed"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Recruitment Closed</span>
                       </button>
                     )}
                   </div>
@@ -358,14 +403,26 @@ export function ExComAndSquadsSection({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => onApply('General Campus Ambassador', activeSquad)}
-                  className="w-full inline-flex items-center justify-center gap-1.5 bg-[#111318] dark:bg-[#B51B27] text-white text-xs font-semibold py-2.5 px-4 rounded-lg hover:bg-[#B51B27] dark:hover:bg-[#92141E] transition-colors cursor-pointer"
-                >
-                  <span>Join {activeSquad} as Campus Ambassador</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </button>
+                {db.recruitmentStatus.ca ? (
+                  <button
+                    type="button"
+                    onClick={() => onApply('General Campus Ambassador', activeSquad)}
+                    className="w-full inline-flex items-center justify-center gap-1.5 bg-[#111318] dark:bg-[#B51B27] text-white text-xs font-semibold py-2.5 px-4 rounded-lg hover:bg-[#B51B27] dark:hover:bg-[#92141E] transition-colors cursor-pointer"
+                  >
+                    <span>Join {activeSquad} as Campus Ambassador</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    className="w-full inline-flex items-center justify-center gap-1.5 bg-[#E2E5EB] dark:bg-[#1E222B] text-[#5A6270] dark:text-slate-400 border border-[#D0D5DD] dark:border-[#2E3440] text-xs font-semibold py-2.5 px-4 rounded-lg cursor-not-allowed"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Recruitment Closed</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

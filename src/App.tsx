@@ -4,10 +4,10 @@ import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { BookOpen, Moon, Sun } from 'lucide-react';
 import {
   auth,
-  BOOTSTRAPPED_DEVELOPER_EMAIL,
   db as firestore,
   googleProvider,
   handleFirestoreError,
+  isMainDeveloperEmail,
   OperationType,
 } from './lib/firebase';
 import {
@@ -16,9 +16,13 @@ import {
   createWorkshopDoc,
   deleteCampaignKitDoc,
   fetchRoleAssignmentForEmail,
+  getFirstOpenRecruitmentRoleTitle,
+  hasAnyOpenRecruitmentRole,
   isFullAccessRole,
+  isRoleOpenForRecruitment,
   issueCertificateDoc,
   LEAD_TO_SQUAD,
+  normalizeRecruitmentStatus,
   publishCampaignKitDoc,
   rejectApplicationDoc,
   removeRoleAssignment,
@@ -32,6 +36,7 @@ import {
   syncRosterBatchToFirestore,
   toggleCertificateStatusDoc,
   updateClubPitchStatusDoc,
+  updateRecruitmentStatusDoc,
   updateTechLeadStageDoc,
   upsertRoleAssignment,
   verifyCertificateById,
@@ -40,6 +45,7 @@ import { calcPoints, DEFAULT_DB, SQUADS_META } from './data/playbook';
 import {
   ActivitySubmission,
   Ambassador,
+  AuthSignInMode,
   CampaignKit,
   CertificateRecord,
   ClubPitch,
@@ -49,6 +55,7 @@ import {
   PortalDB,
   PortalUser,
   RecruitmentApplication,
+  RecruitmentStatusMap,
   RoleAssignment,
   SquadName,
   SubmissionType,
@@ -101,7 +108,8 @@ export default function App() {
 
   const [detectedRefCode, setDetectedRefCode] = useState('');
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<'standard' | 'developer'>('standard');
+  const [authModalMode, setAuthModalMode] = useState<AuthSignInMode>('standard');
+  const [authError, setAuthError] = useState<string | null>(null);
   const [applyModalState, setApplyModalState] = useState<{
     open: boolean;
     role: string;
@@ -162,7 +170,9 @@ export default function App() {
             certThreshold: Number(d.certThreshold ?? 120),
           },
           chairName: String(d.chairName || DEFAULT_DB.chairName),
+          ceoName: String(d.ceoName || DEFAULT_DB.ceoName),
           secretaryName: String(d.secretaryName || DEFAULT_DB.secretaryName),
+          recruitmentStatus: normalizeRecruitmentStatus(d.recruitmentStatus),
         }));
       },
       (err) => {
@@ -238,29 +248,29 @@ export default function App() {
       }
 
       const emailLower = fbUser.email.toLowerCase();
-      const isBootstrappedDeveloper =
-        fbUser.emailVerified && emailLower === BOOTSTRAPPED_DEVELOPER_EMAIL;
+      const isMainDev = fbUser.emailVerified && isMainDeveloperEmail(emailLower);
 
       try {
         let assignment = await fetchRoleAssignmentForEmail(emailLower);
 
-        // If bootstrapped Developer signs in for the first time on an empty DB, seed initial cloud data cleanly
-        if (isBootstrappedDeveloper) {
+        // If a Main Developer signs in for the first time on an empty DB, seed initial cloud data cleanly
+        if (isMainDev) {
           const seeded = await seedInitialFirestoreData();
           if (seeded) {
-            showToast('Cloud Firestore initialized by Platform Developer.');
+            showToast('Cloud Firestore initialized by Main Developer.');
             assignment = await fetchRoleAssignmentForEmail(emailLower);
           }
         }
 
-        if (isBootstrappedDeveloper) {
+        if (isMainDev) {
           setCurrentUser({
             uid: fbUser.uid,
             email: fbUser.email,
-            displayName: assignment?.displayName || fbUser.displayName || 'Platform Developer',
+            displayName: assignment?.displayName || fbUser.displayName || 'Main Developer',
             photoURL: fbUser.photoURL,
             emailVerified: fbUser.emailVerified,
             assigned: true,
+            isMainDeveloper: true,
             role: 'developer',
             squad: 'ALL',
             caCode: assignment?.caCode || 'UE-DEV-00',
@@ -274,6 +284,7 @@ export default function App() {
             photoURL: fbUser.photoURL,
             emailVerified: fbUser.emailVerified,
             assigned: true,
+            isMainDeveloper: false,
             role: assignment.role,
             squad: assignment.squad,
             caCode: assignment.caCode || '',
@@ -287,6 +298,7 @@ export default function App() {
             photoURL: fbUser.photoURL,
             emailVerified: fbUser.emailVerified,
             assigned: false,
+            isMainDeveloper: false,
             role: null,
             squad: null,
             caCode: '',
@@ -301,10 +313,11 @@ export default function App() {
           displayName: fbUser.displayName || fbUser.email,
           photoURL: fbUser.photoURL,
           emailVerified: fbUser.emailVerified,
-          assigned: isBootstrappedDeveloper,
-          role: isBootstrappedDeveloper ? 'developer' : null,
-          squad: isBootstrappedDeveloper ? 'ALL' : null,
-          caCode: isBootstrappedDeveloper ? 'UE-DEV-00' : '',
+          assigned: isMainDev,
+          isMainDeveloper: isMainDev,
+          role: isMainDev ? 'developer' : null,
+          squad: isMainDev ? 'ALL' : null,
+          caCode: isMainDev ? 'UE-DEV-00' : '',
           campus: '',
         });
       } finally {
@@ -565,26 +578,73 @@ export default function App() {
     : undefined;
 
   // Auth Actions
-  const handleGoogleSignIn = async (intent: 'standard' | 'developer' = 'standard') => {
+  const handleGoogleSignIn = async (
+    intent: AuthSignInMode = 'standard',
+    emailHint?: string
+  ) => {
     setSigningIn(true);
+    setAuthError(null);
     try {
+      googleProvider.setCustomParameters(
+        emailHint ? { prompt: 'select_account', login_hint: emailHint } : { prompt: 'select_account' }
+      );
       const cred = await signInWithPopup(auth, googleProvider);
+      const signedEmail = cred.user.email?.toLowerCase() || '';
+      const isMainDev = cred.user.emailVerified && isMainDeveloperEmail(signedEmail);
+      const assignment = signedEmail ? await fetchRoleAssignmentForEmail(signedEmail) : null;
+      const resolvedRole: UserRole | null = isMainDev ? 'developer' : assignment?.role ?? null;
+
+      if (intent === 'developer') {
+        if (resolvedRole !== 'developer') {
+          await signOut(auth);
+          setDashboardOpen(false);
+          setAuthModalMode('developer');
+          setAuthModalOpen(true);
+          setAuthError(
+            `Access Denied for ${signedEmail || 'this account'}. Only the two Main Developers (adnanchowdhury477@gmail.com, mdadnanchowdhuryifti@gmail.com) or Developers explicitly added by them can access Developer Mode.`
+          );
+          return;
+        }
+        setAuthModalOpen(false);
+        setDashboardOpen(true);
+        showToast(
+          isMainDev
+            ? 'Main Developer Root Console unlocked (Permanent Tier 0A).'
+            : 'Developer Root Console unlocked (Tier 0B).'
+        );
+        return;
+      }
+
+      if (intent === 'executive') {
+        if (
+          resolvedRole !== 'chair' &&
+          resolvedRole !== 'ceo' &&
+          resolvedRole !== 'developer'
+        ) {
+          await signOut(auth);
+          setDashboardOpen(false);
+          setAuthModalMode('executive');
+          setAuthModalOpen(true);
+          setAuthError(
+            `Access Denied for ${signedEmail || 'this account'}. This email is not authorized for Program Chair or Company CEO access. Ask a Platform Developer to authorize your email.`
+          );
+          return;
+        }
+        setAuthModalOpen(false);
+        setDashboardOpen(true);
+        showToast(
+          resolvedRole === 'ceo'
+            ? 'Company CEO Executive Console unlocked (Full Chair Access).'
+            : resolvedRole === 'chair'
+            ? 'Program Chair Console unlocked (Full Operational Access).'
+            : 'Developer Executive Access unlocked.'
+        );
+        return;
+      }
+
       setAuthModalOpen(false);
       setDashboardOpen(true);
-      const signedEmail = cred.user.email?.toLowerCase() || '';
-      if (intent === 'developer') {
-        const assignment = signedEmail ? await fetchRoleAssignmentForEmail(signedEmail) : null;
-        const isDev =
-          (cred.user.emailVerified && signedEmail === BOOTSTRAPPED_DEVELOPER_EMAIL) ||
-          assignment?.role === 'developer';
-        showToast(
-          isDev
-            ? 'Developer Root Console unlocked (Tier 0 Full Control).'
-            : 'Signed in. Note: this account does not hold Tier 0 Developer root access.'
-        );
-      } else {
-        showToast('Signed in with Google.');
-      }
+      showToast('Signed in with Google.');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sign-in cancelled';
       showToast(`Sign in failed: ${message}`);
@@ -599,10 +659,11 @@ export default function App() {
     showToast('Signed out securely.');
   };
 
-  const handleOpenAuthOrDashboard = (mode: 'standard' | 'developer' = 'standard') => {
+  const handleOpenAuthOrDashboard = (mode: AuthSignInMode = 'standard') => {
     if (currentUser) {
       setDashboardOpen(true);
     } else {
+      setAuthError(null);
       setAuthModalMode(mode);
       setAuthModalOpen(true);
     }
@@ -610,9 +671,20 @@ export default function App() {
 
   // Public & Dashboard Actions wired to Cloud Firestore
   const handleApply = (role: string, squad?: SquadName) => {
+    if (!hasAnyOpenRecruitmentRole(portalData.recruitmentStatus)) {
+      showToast('All recruitment positions are currently closed.');
+      return;
+    }
+    const targetRole = isRoleOpenForRecruitment(portalData.recruitmentStatus, role)
+      ? role
+      : getFirstOpenRecruitmentRoleTitle(portalData.recruitmentStatus);
+    if (!targetRole) {
+      showToast('Recruitment for this position is currently closed.');
+      return;
+    }
     setApplyModalState({
       open: true,
-      role,
+      role: targetRole,
       squad: squad || 'Squad A',
     });
   };
@@ -771,16 +843,21 @@ export default function App() {
           currentUser={currentUser}
           onApply={(role) => handleApply(role)}
           onOpenDashboard={() => handleOpenAuthOrDashboard('standard')}
+          onOpenExecutiveSignIn={() => handleOpenAuthOrDashboard('executive')}
           onOpenDeveloperSignIn={() => handleOpenAuthOrDashboard('developer')}
         />
 
-        <GovernanceSection onApply={(role) => handleApply(role)} />
+        <GovernanceSection
+          recruitmentStatus={portalData.recruitmentStatus}
+          onApply={(role) => handleApply(role)}
+        />
 
         <ExComAndSquadsSection
           db={portalData}
           currentUser={currentUser}
           onApply={handleApply}
           onOpenPersonalPortal={() => handleOpenAuthOrDashboard('standard')}
+          onOpenExecutivePortal={() => handleOpenAuthOrDashboard('executive')}
         />
 
         <LeaderboardSection
@@ -822,10 +899,13 @@ export default function App() {
             </a>
             <button
               type="button"
+              disabled={!hasAnyOpenRecruitmentRole(portalData.recruitmentStatus)}
               onClick={() => handleApply('General Campus Ambassador')}
-              className="hover:text-[#B51B27] transition-colors cursor-pointer"
+              className="hover:text-[#B51B27] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
-              Recruitment
+              {hasAnyOpenRecruitmentRole(portalData.recruitmentStatus)
+                ? 'Recruitment'
+                : 'Recruitment Closed'}
             </button>
             <button
               type="button"
@@ -833,6 +913,13 @@ export default function App() {
               className="hover:text-[#B51B27] transition-colors cursor-pointer"
             >
               Personal Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenAuthOrDashboard('executive')}
+              className="font-medium text-[#111318] dark:text-slate-200 hover:text-[#B51B27] transition-colors cursor-pointer"
+            >
+              Chair &amp; CEO Sign In
             </button>
             <button
               type="button"
@@ -920,6 +1007,13 @@ export default function App() {
             await seedInitialFirestoreData();
             showToast('Default playbook data seeded to Cloud Firestore.');
           }}
+          onUpdateRecruitmentStatus={async (nextStatus: RecruitmentStatusMap) => {
+            await updateRecruitmentStatusDoc(nextStatus);
+            const openCount = Object.values(nextStatus).filter(Boolean).length;
+            showToast(
+              `Recruitment availability updated (${openCount} of 7 positions open).`
+            );
+          }}
           onUpsertRole={async (input) => {
             await upsertRoleAssignment(input);
             showToast(`Assigned ${input.role.toUpperCase()} access to ${input.email}.`);
@@ -974,6 +1068,8 @@ export default function App() {
               author:
                 currentUser.role === 'developer'
                   ? 'Tier 0 · Platform Developer'
+                  : currentUser.role === 'ceo'
+                  ? 'Tier 1 · Company CEO'
                   : currentUser.role === 'secretary'
                   ? 'Tier 2 · Program Secretary'
                   : currentUser.role === 'lead4'
@@ -1045,7 +1141,12 @@ export default function App() {
         open={authModalOpen}
         initialMode={authModalMode}
         signingIn={signingIn}
-        onClose={() => setAuthModalOpen(false)}
+        authError={authError}
+        onClearError={() => setAuthError(null)}
+        onClose={() => {
+          setAuthError(null);
+          setAuthModalOpen(false);
+        }}
         onGoogleSignIn={handleGoogleSignIn}
       />
 
@@ -1053,6 +1154,7 @@ export default function App() {
         open={applyModalState.open}
         defaultRole={applyModalState.role}
         defaultSquad={applyModalState.squad}
+        recruitmentStatus={portalData.recruitmentStatus}
         currentUser={currentUser}
         onRequireSignIn={() => handleGoogleSignIn('standard')}
         onClose={() => setApplyModalState((s) => ({ ...s, open: false }))}

@@ -5,9 +5,79 @@ import {
   GovernanceNodeKey,
   KpiWeights,
   PortalDB,
+  RecruitmentRoleKey,
+  RecruitmentStatusMap,
   SquadMeta,
   SquadName,
 } from '../types';
+
+export const DEFAULT_RECRUITMENT_STATUS: RecruitmentStatusMap = {
+  secretary: true,
+  lead1: true,
+  lead2: true,
+  lead3: true,
+  lead4: true,
+  lead5: true,
+  ca: true,
+};
+
+export const RECRUITMENT_ROLE_ITEMS: {
+  key: RecruitmentRoleKey;
+  roleTitle: string;
+  tierLabel: string;
+  shortLabel: string;
+  squadLabel: string;
+}[] = [
+  {
+    key: 'secretary',
+    roleTitle: 'Program Secretary',
+    tierLabel: 'Tier 2 · Executive Coordination',
+    shortLabel: 'Program Secretary',
+    squadLabel: 'All Squads (A–E)',
+  },
+  {
+    key: 'lead1',
+    roleTitle: 'Operations & CA HR Lead',
+    tierLabel: 'Tier 3 · Core Team Lead 01',
+    shortLabel: 'Lead 1 · Operations & CA HR',
+    squadLabel: 'Squad A',
+  },
+  {
+    key: 'lead2',
+    roleTitle: 'Workshop & Course Growth Lead',
+    tierLabel: 'Tier 3 · Core Team Lead 02',
+    shortLabel: 'Lead 2 · Workshop & Course Growth',
+    squadLabel: 'Squad B',
+  },
+  {
+    key: 'lead3',
+    roleTitle: 'Technical Project & Lead-Gen Lead',
+    tierLabel: 'Tier 3 · Core Team Lead 03',
+    shortLabel: 'Lead 3 · Technical Project & Lead-Gen',
+    squadLabel: 'Squad C',
+  },
+  {
+    key: 'lead4',
+    roleTitle: 'Brand & Digital Publicity Lead',
+    tierLabel: 'Tier 3 · Core Team Lead 04',
+    shortLabel: 'Lead 4 · Brand & Digital Publicity',
+    squadLabel: 'Squad D',
+  },
+  {
+    key: 'lead5',
+    roleTitle: 'Campus Partnerships & Events Lead',
+    tierLabel: 'Tier 3 · Core Team Lead 05',
+    shortLabel: 'Lead 5 · Campus Partnerships & Events',
+    squadLabel: 'Squad E',
+  },
+  {
+    key: 'ca',
+    roleTitle: 'General Campus Ambassador',
+    tierLabel: 'Tier 4 · Campus Execution Force',
+    shortLabel: 'General Campus Ambassador',
+    squadLabel: 'Squads A–E',
+  },
+];
 
 export const DB_KEY = 'ue_ca_portal_v2_4tier_db';
 
@@ -265,7 +335,9 @@ export const DEFAULT_DB: PortalDB = {
     certThreshold: 120,
   },
   chairName: 'Md. Adnan Chowdhury Ifti',
+  ceoName: 'Ulterior Engineering CEO',
   secretaryName: 'Tahmid Hasan (Acting Secretary)',
+  recruitmentStatus: { ...DEFAULT_RECRUITMENT_STATUS },
   roster: [
     {
       id: 'ca1',
