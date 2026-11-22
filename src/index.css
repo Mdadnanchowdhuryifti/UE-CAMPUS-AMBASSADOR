@@ -1,0 +1,88 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-ue-red: #B51B27;
+  --color-ue-red-dark: #92141E;
+  --color-ue-light-bg: #F4F5F7;
+  --color-ue-light-card: #FFFFFF;
+  --color-ue-light-border: #E2E5EB;
+  --color-ue-dark-bg: #0D0F12;
+  --color-ue-dark-card: #15181E;
+  --color-ue-dark-border: #262B35;
+  --color-ue-ink: #111318;
+  --color-ue-muted: #5A6270;
+}
+
+:root {
+  --grid-color: rgba(17, 19, 24, 0.045);
+}
+
+html.dark {
+  --grid-color: rgba(255, 255, 255, 0.035);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+}
+
+.swiss-grid {
+  background-image:
+    linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+html.dark .glass-panel {
+  background: rgba(21, 24, 30, 0.86);
+}
+
+.tree-line-v {
+  width: 2px;
+  background: linear-gradient(to bottom, #B51B27, #9CA3AF);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 128, 142, 0.35);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(181, 27, 39, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

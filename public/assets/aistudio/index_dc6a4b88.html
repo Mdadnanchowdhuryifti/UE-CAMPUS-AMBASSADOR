@@ -1,0 +1,2294 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ulterior Engineering — Campus Ambassador Program Portal</title>
+  <meta name="description" content="Official Campus Ambassador Program Portal of Ulterior Engineering. 4-Tier ExCom Governance: Program Chair, Secretary, 5 Core Team Leads, and Campus Squads A–E." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            ue: {
+              red: '#B51B27',
+              redDark: '#92141E',
+              lightBg: '#F4F5F7',
+              lightCard: '#FFFFFF',
+              lightBorder: '#E2E5EB',
+              darkBg: '#0D0F12',
+              darkCard: '#15181E',
+              darkBorder: '#262B35',
+              ink: '#111318',
+              muted: '#5A6270',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root {
+      --grid-color: rgba(17, 19, 24, 0.045);
+    }
+    html.dark {
+      --grid-color: rgba(255, 255, 255, 0.035);
+    }
+    .swiss-grid {
+      background-image:
+        linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+      background-size: 36px 36px;
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    html.dark .glass-panel {
+      background: rgba(21, 24, 30, 0.82);
+    }
+    .tree-line-v {
+      width: 2px;
+      background: linear-gradient(to bottom, #B51B27, #9CA3AF);
+    }
+    .node-active {
+      border-color: #B51B27 !important;
+      box-shadow: 0 0 0 3px rgba(181, 27, 39, 0.16);
+    }
+    .fade-in {
+      animation: fadeIn 0.25s ease-out forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(120, 128, 142, 0.35); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(181, 27, 39, 0.6); }
+  </style>
+</head>
+<body class="bg-ue-lightBg dark:bg-ue-darkBg text-ue-ink dark:text-slate-100 font-sans antialiased selection:bg-ue-red selection:text-white transition-colors duration-200">
+
+  <!-- REFERRAL ATTRIBUTION BANNER (Auto-shown if ?ref=CODE is in URL) -->
+  <div id="referralBanner" class="hidden bg-ue-red text-white text-xs sm:text-sm py-2 px-4">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-2 h-2 rounded-full bg-white animate-pulse"></span>
+        <span>Referred by Campus Ambassador <strong id="refBannerName" class="font-semibold"></strong> (<span id="refBannerCode" class="font-mono underline"></span>). Your workshop registration will be tracked automatically.</span>
+      </div>
+      <a href="#workshops" class="bg-white text-ue-red font-semibold px-3 py-1 rounded text-xs hover:bg-slate-100 transition">View Workshops →</a>
+    </div>
+  </div>
+
+  <!-- STICKY HEADER -->
+  <header class="sticky top-0 z-40 glass-panel border-b border-ue-lightBorder dark:border-ue-darkBorder">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <!-- Brand Logo -->
+      <a href="#" class="flex items-center gap-3 group shrink-0">
+        <svg width="38" height="30" viewBox="0 0 46 34" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="UE Logo">
+          <!-- U -->
+          <path d="M3 4H10V20.5C10 23.2 11.7 24.8 14.3 24.8C16.9 24.8 18.6 23.2 18.6 20.5V4H25.6V20.8C25.6 27.6 21.1 31.4 14.3 31.4C7.5 31.4 3 27.6 3 20.8V4Z" class="fill-ue-ink dark:fill-white"/>
+          <!-- E bars with signature UE crimson accent -->
+          <rect x="29.5" y="4" width="14" height="5.8" class="fill-ue-ink dark:fill-white"/>
+          <rect x="29.5" y="14.1" width="11.5" height="5.8" fill="#B51B27"/>
+          <rect x="29.5" y="24.2" width="14" height="5.8" class="fill-ue-ink dark:fill-white"/>
+        </svg>
+        <div class="leading-tight">
+          <div class="font-extrabold tracking-tight text-sm sm:text-base flex items-center gap-1.5">
+            <span>ULTERIOR</span>
+            <span class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-ue-red/10 text-ue-red border border-ue-red/20">CA Portal</span>
+          </div>
+          <div class="text-[10px] tracking-[0.16em] uppercase text-ue-muted dark:text-slate-400">Campus Ambassador Program</div>
+        </div>
+      </a>
+
+      <!-- Desktop Nav -->
+      <nav class="hidden lg:flex items-center gap-6 text-xs font-medium tracking-wide uppercase text-ue-muted dark:text-slate-300">
+        <a href="#architecture" class="hover:text-ue-red transition">01 Architecture</a>
+        <a href="#excom" class="hover:text-ue-red transition">02 ExCom</a>
+        <a href="#squads" class="hover:text-ue-red transition">03 Squads</a>
+        <a href="#leaderboard" class="hover:text-ue-red transition">04 Leaderboard</a>
+        <a href="#workshops" class="hover:text-ue-red transition">05 Workshops</a>
+        <a href="#verify" class="hover:text-ue-red transition">06 Verify</a>
+      </nav>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <a href="https://ulteriorengineering.com/" target="_blank" rel="noopener" class="hidden sm:inline-flex items-center gap-1 text-xs font-medium text-ue-muted dark:text-slate-300 hover:text-ue-red px-2.5 py-1.5 rounded border border-ue-lightBorder dark:border-ue-darkBorder transition">
+          ← Main Site
+        </a>
+        <button id="authTriggerBtn" onclick="openAuthOrDashboard()" class="inline-flex items-center gap-2 bg-ue-red hover:bg-ue-redDark text-white text-xs font-semibold px-3.5 py-2 rounded transition shadow-sm">
+          <span id="authBtnDot" class="w-1.5 h-1.5 rounded-full bg-white/80"></span>
+          <span id="authBtnLabel">Sign In / Portal</span>
+        </button>
+        <button onclick="toggleMobileMenu()" class="lg:hidden p-2 rounded border border-ue-lightBorder dark:border-ue-darkBorder text-ue-ink dark:text-white" aria-label="Menu">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="hidden lg:hidden border-t border-ue-lightBorder dark:border-ue-darkBorder bg-white dark:bg-ue-darkCard px-4 py-3 space-y-2 text-xs font-semibold uppercase tracking-wider">
+      <a href="#architecture" onclick="toggleMobileMenu()" class="block py-1.5 hover:text-ue-red">01 Architecture (4-Tier)</a>
+      <a href="#excom" onclick="toggleMobileMenu()" class="block py-1.5 hover:text-ue-red">02 Executive Committee</a>
+      <a href="#squads" onclick="toggleMobileMenu()" class="block py-1.5 hover:text-ue-red">03 Campus Squads A–E</a>
+      <a href="#leaderboard" onclick="toggleMobileMenu()" class="block py-1.5 hover:text-ue-red">04 Live Leaderboard</a>
+      <a href="#workshops" onclick="toggleMobileMenu()" class="block py-1.5 hover:text-ue-red">05 Workshops & Referral</a>
+      <a href="#verify" onclick="toggleMobileMenu()" class="block py-1.5 hover:text-ue-red">06 Verify & Collaborate</a>
+      <a href="https://ulteriorengineering.com/" target="_blank" rel="noopener" class="block py-1.5 text-ue-muted">← Back to Ulterior Engineering</a>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="relative overflow-hidden swiss-grid border-b border-ue-lightBorder dark:border-ue-darkBorder">
+    <div class="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/70 via-transparent to-ue-red/5 dark:from-ue-darkBg/80 dark:via-transparent dark:to-ue-red/10"></div>
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-20">
+      <div class="grid lg:grid-cols-12 gap-10 items-center">
+        <!-- Left Copy -->
+        <div class="lg:col-span-7 space-y-6">
+          <div class="inline-flex items-center gap-2.5 text-[11px] font-mono uppercase tracking-[0.2em] text-ue-muted dark:text-slate-400">
+            <span class="w-6 h-[1.5px] bg-ue-red"></span>
+            <span>PEOPLE. PURPOSE. POSSIBILITY.</span>
+          </div>
+
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.06]">
+            Empowering Campuses.<br/>
+            Engineering <span class="text-ue-red">Tomorrow.</span>
+          </h1>
+
+          <p class="text-sm sm:text-base text-ue-muted dark:text-slate-300 max-w-2xl leading-relaxed">
+            The official nationwide student leadership network of <strong>Ulterior Engineering</strong>. Structured on a disciplined <strong>4-Tier ExCom Architecture</strong> (Program Chair → Secretary → 5 Core Team Leads → General CAs), connecting engineering education, technical project execution, and industry across Bangladesh.
+          </p>
+
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <button onclick="openApplyModal('General Campus Ambassador')" class="inline-flex items-center gap-2 bg-ue-red hover:bg-ue-redDark text-white text-sm font-semibold px-5 py-3 rounded transition shadow-sm">
+              <span>Apply to Join Program</span>
+              <span>↗</span>
+            </button>
+            <button onclick="openAuthOrDashboard()" class="inline-flex items-center gap-2 bg-white dark:bg-ue-darkCard hover:border-ue-red text-ue-ink dark:text-white border border-ue-lightBorder dark:border-ue-darkBorder text-sm font-semibold px-5 py-3 rounded transition">
+              <span>Open CA / ExCom Dashboard</span>
+              <span>→</span>
+            </button>
+            <a href="#architecture" class="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-ue-muted hover:text-ue-red px-3 py-2 transition">
+              View 4-Tier Tree ↓
+            </a>
+          </div>
+
+          <!-- Live Program Telemetry -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-ue-lightBorder dark:border-ue-darkBorder">
+            <div>
+              <div class="text-2xl font-extrabold font-mono" id="statCampuses">24+</div>
+              <div class="text-[11px] uppercase tracking-wider text-ue-muted dark:text-slate-400">Target Campuses</div>
+            </div>
+            <div>
+              <div class="text-2xl font-extrabold font-mono text-ue-red" id="statActiveCAs">0</div>
+              <div class="text-[11px] uppercase tracking-wider text-ue-muted dark:text-slate-400">Active Roster</div>
+            </div>
+            <div>
+              <div class="text-2xl font-extrabold font-mono" id="statWorkshops">0</div>
+              <div class="text-[11px] uppercase tracking-wider text-ue-muted dark:text-slate-400">Workshop Regs</div>
+            </div>
+            <div>
+              <div class="text-2xl font-extrabold font-mono" id="statLeads">0</div>
+              <div class="text-[11px] uppercase tracking-wider text-ue-muted dark:text-slate-400">Verified Tech Leads</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Glassmorphic Impact Card (Matches Main UE Site) -->
+        <div class="lg:col-span-5">
+          <div class="glass-panel border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-6 shadow-lg space-y-5 relative overflow-hidden">
+            <div class="flex items-center justify-between border-b border-ue-lightBorder dark:border-ue-darkBorder pb-3">
+              <span class="text-[11px] font-mono uppercase tracking-widest text-ue-muted dark:text-slate-400">01 / CONNECTED CAMPUS NETWORK</span>
+              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">Live Portal v2.4</span>
+            </div>
+
+            <div>
+              <h2 class="text-lg font-bold tracking-tight">Where campus ambition meets real industrial engineering.</h2>
+              <p class="text-xs text-ue-muted dark:text-slate-400 mt-1.5 leading-relaxed">
+                Every ambassador operates across three measurable company pillars under coordinated ExCom supervision.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 pt-2 border-t border-ue-lightBorder dark:border-ue-darkBorder">
+              <div class="space-y-1">
+                <div class="text-xs font-mono font-bold text-ue-red">01</div>
+                <div class="text-xs font-semibold">Workshops & Courses</div>
+                <div class="text-[11px] text-ue-muted dark:text-slate-400">Referral-tracked bootcamps</div>
+              </div>
+              <div class="space-y-1">
+                <div class="text-xs font-mono font-bold text-ue-red">02</div>
+                <div class="text-xs font-semibold">Tech Lead-Gen</div>
+                <div class="text-[11px] text-ue-muted dark:text-slate-400">FYDP, Robotics & Hardware</div>
+              </div>
+              <div class="space-y-1">
+                <div class="text-xs font-mono font-bold text-ue-red">03</div>
+                <div class="text-xs font-semibold">Campus Clubs</div>
+                <div class="text-[11px] text-ue-muted dark:text-slate-400">IEEE, EEE, CSE Seminars</div>
+              </div>
+            </div>
+
+            <!-- 4-Tier Mini Pill Indicator -->
+            <div class="bg-ue-lightBg dark:bg-ue-darkBg rounded-lg p-3.5 border border-ue-lightBorder dark:border-ue-darkBorder">
+              <div class="text-[10px] font-mono uppercase tracking-widest text-ue-muted dark:text-slate-400 mb-2">4-Tier Chain of Command</div>
+              <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+                <span class="px-2 py-0.5 rounded bg-ue-ink text-white dark:bg-white dark:text-ue-ink">1. Program Chair</span>
+                <span class="text-ue-red font-bold">→</span>
+                <span class="px-2 py-0.5 rounded bg-ue-red text-white">2. Secretary</span>
+                <span class="text-ue-red font-bold">→</span>
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">3. 5 Core Leads</span>
+                <span class="text-ue-red font-bold">→</span>
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">4. General CAs</span>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] font-mono text-ue-muted dark:text-slate-400 pt-1">
+              <span>BUILT IN BANGLADESH · ENGINEERED FOR IMPACT</span>
+              <span class="text-ue-red font-semibold">2026–2027</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Industrial Strip -->
+    <div class="border-t border-ue-lightBorder dark:border-ue-darkBorder bg-white/80 dark:bg-ue-darkCard/80">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4 text-[11px] font-mono uppercase tracking-[0.16em] text-ue-muted dark:text-slate-400">
+        <span>4-TIER EXCOM GOVERNANCE</span>
+        <span class="hidden sm:inline text-ue-red">•</span>
+        <span>DUAL PORTFOLIO + SQUAD MATRIX</span>
+        <span class="hidden sm:inline text-ue-red">•</span>
+        <span>LIVE KPI LEDGER</span>
+        <span class="hidden sm:inline text-ue-red">•</span>
+        <span>LINKEDIN-VERIFIABLE CREDENTIALS</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 01: INTERACTIVE 4-TIER GOVERNANCE ECOSYSTEM TREE -->
+  <section id="architecture" class="py-16 lg:py-20 border-b border-ue-lightBorder dark:border-ue-darkBorder">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-widest text-ue-red font-semibold">01 / PROGRAM GOVERNANCE ARCHITECTURE</div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1">Four-Tier Chain of Command. Zero Bottlenecks.</h2>
+        </div>
+        <p class="text-xs sm:text-sm text-ue-muted dark:text-slate-400 max-w-md">
+          Click any tier or portfolio node below to inspect its exact mandate, reporting line, and monthly KPIs from the Ulterior Engineering Playbook.
+        </p>
+      </div>
+
+      <div class="grid lg:grid-cols-12 gap-8 items-start">
+        <!-- Interactive Org Tree -->
+        <div class="lg:col-span-8 bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5 sm:p-7 swiss-grid">
+          <div class="flex flex-col items-center">
+            <!-- Parent Brand Pill -->
+            <div class="px-4 py-1.5 rounded-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder text-[11px] font-mono uppercase tracking-wider text-ue-muted dark:text-slate-400">
+              UE Management Interface
+            </div>
+            <div class="h-5 tree-line-v"></div>
+
+            <!-- TIER 1: PROGRAM CHAIR -->
+            <button onclick="selectNode('chair')" id="node-chair" class="node-btn node-active w-full max-w-md text-left bg-white dark:bg-ue-darkBg border-2 border-ue-lightBorder dark:border-ue-darkBorder rounded-lg p-4 transition hover:border-ue-red">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded bg-ue-ink text-white dark:bg-white dark:text-ue-ink">Tier 1 · Strategic Head</span>
+                <span class="text-[11px] font-mono text-ue-red">Click to inspect</span>
+              </div>
+              <div class="font-bold text-base mt-1.5">Program Chair (CA Lead)</div>
+              <div class="text-xs text-ue-muted dark:text-slate-400 mt-0.5">Strategic alignment with Ulterior Engineering Management, KPI targets & approvals.</div>
+            </button>
+
+            <div class="h-6 tree-line-v"></div>
+
+            <!-- TIER 2: SECRETARY -->
+            <button onclick="selectNode('secretary')" id="node-secretary" class="node-btn w-full max-w-md text-left bg-white dark:bg-ue-darkBg border-2 border-ue-lightBorder dark:border-ue-darkBorder rounded-lg p-4 transition hover:border-ue-red">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded bg-ue-red text-white">Tier 2 · Executive Coordination</span>
+                <span class="text-[11px] font-mono text-ue-muted dark:text-slate-400">Reports to Chair</span>
+              </div>
+              <div class="font-bold text-base mt-1.5">Program Secretary</div>
+              <div class="text-xs text-ue-muted dark:text-slate-400 mt-0.5">Direct oversight of the 5 Core Team Leads, ExCom syncs, KPI audits & central governance.</div>
+            </button>
+
+            <div class="h-6 tree-line-v"></div>
+
+            <!-- Branching horizontal bar -->
+            <div class="w-full hidden sm:block h-[2px] bg-ue-lightBorder dark:bg-ue-darkBorder max-w-2xl mb-4 relative">
+              <div class="absolute left-1/2 -top-1.5 -translate-x-1/2 w-3 h-3 rounded-full bg-ue-red border-2 border-white dark:border-ue-darkCard"></div>
+            </div>
+
+            <!-- TIER 3: 5 CORE TEAM LEADS -->
+            <div class="w-full">
+              <div class="text-center text-[10px] font-mono uppercase tracking-widest text-ue-muted dark:text-slate-400 mb-3">
+                Tier 3 · 5 Core Team Leads (ExCom Portfolios)
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+                <button onclick="selectNode('lead1')" id="node-lead1" class="node-btn text-left bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg p-3 transition hover:border-ue-red">
+                  <div class="text-[10px] font-mono text-ue-red font-bold">LEAD 01</div>
+                  <div class="font-bold text-xs mt-1 leading-snug">Operations & CA HR</div>
+                  <div class="text-[10px] text-ue-muted dark:text-slate-400 mt-1">Squad A Lead</div>
+                </button>
+                <button onclick="selectNode('lead2')" id="node-lead2" class="node-btn text-left bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg p-3 transition hover:border-ue-red">
+                  <div class="text-[10px] font-mono text-ue-red font-bold">LEAD 02</div>
+                  <div class="font-bold text-xs mt-1 leading-snug">Workshop & Course Growth</div>
+                  <div class="text-[10px] text-ue-muted dark:text-slate-400 mt-1">Squad B Lead</div>
+                </button>
+                <button onclick="selectNode('lead3')" id="node-lead3" class="node-btn text-left bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg p-3 transition hover:border-ue-red">
+                  <div class="text-[10px] font-mono text-ue-red font-bold">LEAD 03</div>
+                  <div class="font-bold text-xs mt-1 leading-snug">Tech Project & Lead-Gen</div>
+                  <div class="text-[10px] text-ue-muted dark:text-slate-400 mt-1">Squad C Lead</div>
+                </button>
+                <button onclick="selectNode('lead4')" id="node-lead4" class="node-btn text-left bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg p-3 transition hover:border-ue-red">
+                  <div class="text-[10px] font-mono text-ue-red font-bold">LEAD 04</div>
+                  <div class="font-bold text-xs mt-1 leading-snug">Brand & Digital PR</div>
+                  <div class="text-[10px] text-ue-muted dark:text-slate-400 mt-1">Squad D Lead</div>
+                </button>
+                <button onclick="selectNode('lead5')" id="node-lead5" class="node-btn text-left bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg p-3 transition hover:border-ue-red">
+                  <div class="text-[10px] font-mono text-ue-red font-bold">LEAD 05</div>
+                  <div class="font-bold text-xs mt-1 leading-snug">Campus Clubs & Events</div>
+                  <div class="text-[10px] text-ue-muted dark:text-slate-400 mt-1">Squad E Lead</div>
+                </button>
+              </div>
+            </div>
+
+            <div class="h-6 tree-line-v"></div>
+
+            <!-- TIER 4: GENERAL CAMPUS AMBASSADORS -->
+            <button onclick="selectNode('general')" id="node-general" class="node-btn w-full text-left bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg p-4 transition hover:border-ue-red">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span class="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-ue-ink dark:text-slate-200">Tier 4 · Nationwide Execution Force</span>
+                  <div class="font-bold text-sm mt-1">General Campus Ambassadors (Squads A – E)</div>
+                </div>
+                <div class="flex flex-wrap gap-1.5 text-[10px] font-mono">
+                  <span class="px-2 py-0.5 rounded bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">Squad A</span>
+                  <span class="px-2 py-0.5 rounded bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">Squad B</span>
+                  <span class="px-2 py-0.5 rounded bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">Squad C</span>
+                  <span class="px-2 py-0.5 rounded bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">Squad D</span>
+                  <span class="px-2 py-0.5 rounded bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">Squad E</span>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Mandate & KPI Inspector -->
+        <div class="lg:col-span-4 bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-6 sticky top-24 shadow-sm">
+          <div class="flex items-center justify-between border-b border-ue-lightBorder dark:border-ue-darkBorder pb-3 mb-4">
+            <span class="text-[10px] font-mono uppercase tracking-widest text-ue-red font-bold" id="inspTier">TIER 1 · EXECUTIVE</span>
+            <span class="text-[10px] font-mono text-ue-muted dark:text-slate-400" id="inspExcom">ExCom Chair</span>
+          </div>
+          <h3 class="text-xl font-extrabold tracking-tight" id="inspTitle">Program Chair (CA Lead)</h3>
+          <div class="mt-4 space-y-4 text-xs leading-relaxed">
+            <div>
+              <div class="font-mono uppercase text-[10px] tracking-wider text-ue-muted dark:text-slate-400 mb-1">Direct Reporting Line</div>
+              <p class="font-medium" id="inspReporting"></p>
+            </div>
+            <div>
+              <div class="font-mono uppercase text-[10px] tracking-wider text-ue-muted dark:text-slate-400 mb-1">Primary Mandate</div>
+              <p class="text-ue-muted dark:text-slate-300" id="inspMandate"></p>
+            </div>
+            <div>
+              <div class="font-mono uppercase text-[10px] tracking-wider text-ue-muted dark:text-slate-400 mb-1">Core Success Metrics (KPIs)</div>
+              <ul id="inspKpis" class="space-y-1.5 text-ue-ink dark:text-slate-200"></ul>
+            </div>
+            <div class="pt-3 border-t border-ue-lightBorder dark:border-ue-darkBorder">
+              <button id="inspApplyBtn" onclick="openApplyModal('Program Secretary')" class="w-full bg-ue-ink dark:bg-white text-white dark:text-ue-ink hover:bg-ue-red dark:hover:bg-ue-red dark:hover:text-white text-xs font-semibold py-2.5 rounded transition">
+                Apply for this Portfolio ↗
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 02: EXECUTIVE COMMITTEE (IEEE-INSPIRED SHOWCASE) -->
+  <section id="excom" class="py-16 lg:py-20 bg-white dark:bg-ue-darkCard/40 border-b border-ue-lightBorder dark:border-ue-darkBorder">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-widest text-ue-red font-semibold">02 / EXECUTIVE COMMITTEE (EXCOM 2026–2027)</div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1">Program Leadership & Open Core Roles</h2>
+        </div>
+        <button onclick="openApplyModal('Core Team Lead')" class="self-start md:self-auto text-xs font-semibold px-4 py-2 rounded border border-ue-red text-ue-red hover:bg-ue-red hover:text-white transition">
+          View Recruitment Circular & Apply ↗
+        </button>
+      </div>
+
+      <!-- Top Leadership Row: Tier 1 (Program Chair) + Tier 2 (Secretary) -->
+      <div class="grid md:grid-cols-2 gap-6 mb-8">
+        <!-- Program Chair Card -->
+        <div class="bg-ue-lightBg dark:bg-ue-darkCard border-2 border-ue-ink/15 dark:border-ue-darkBorder rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start">
+          <div class="w-16 h-16 rounded-xl bg-ue-ink text-white flex items-center justify-center font-extrabold text-xl shrink-0 border-b-4 border-ue-red">
+            AC
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-ue-ink text-white dark:bg-white dark:text-ue-ink font-semibold">Tier 1 · Program Chair</span>
+              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">Appointed</span>
+            </div>
+            <h3 class="text-lg font-extrabold mt-2">Md. Adnan Chowdhury Ifti</h3>
+            <p class="text-xs text-ue-muted dark:text-slate-400">Campus Ambassador Lead · North South University (EEE)</p>
+            <p class="text-xs text-ue-muted dark:text-slate-300 mt-2.5 leading-relaxed">
+              Translates Ulterior Engineering management goals into nationwide campus campaigns, oversees the Program Secretary, approves incentives, and governs executive credentials.
+            </p>
+            <div class="flex items-center gap-3 mt-4 text-xs font-medium">
+              <button onclick="openAuthOrDashboard('chair')" class="text-ue-red hover:underline font-semibold">Chair Console →</button>
+              <span class="text-ue-lightBorder dark:text-ue-darkBorder">|</span>
+              <span class="font-mono text-[11px] text-ue-muted dark:text-slate-400">UE-EXCOM-01</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Program Secretary Card -->
+        <div class="bg-ue-lightBg dark:bg-ue-darkCard border-2 border-ue-red/30 rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start">
+          <div class="w-16 h-16 rounded-xl bg-ue-red text-white flex items-center justify-center font-extrabold text-xl shrink-0">
+            GS
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-ue-red text-white font-semibold">Tier 2 · Program Secretary</span>
+              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">Recruiting Open</span>
+            </div>
+            <h3 class="text-lg font-extrabold mt-2" id="secretaryDisplayName">General Secretary (Open Position)</h3>
+            <p class="text-xs text-ue-muted dark:text-slate-400">Executive Operations Bridge · Reports directly to Program Chair</p>
+            <p class="text-xs text-ue-muted dark:text-slate-300 mt-2.5 leading-relaxed">
+              Coordinates the 5 Core Team Leads, manages ExCom meeting minutes, audits weekly KPI logs across all five squads, and enforces reporting deadlines before management syncs.
+            </p>
+            <div class="flex items-center gap-3 mt-4 text-xs font-medium">
+              <button onclick="openApplyModal('Program Secretary')" class="bg-ue-red hover:bg-ue-redDark text-white px-3 py-1.5 rounded text-xs font-semibold transition">Apply as Secretary ↗</button>
+              <button onclick="openAuthOrDashboard('secretary')" class="text-ue-muted hover:text-ue-red font-semibold">Demo Console →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tier 3: 5 Core Team Leads Grid -->
+      <div class="mb-3 flex items-center justify-between">
+        <span class="text-xs font-mono uppercase tracking-widest text-ue-muted dark:text-slate-400">Tier 3 · Five Core Team Lead Portfolios (Report to Secretary & Chair)</span>
+      </div>
+      <div id="coreLeadsGrid" class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4"></div>
+    </div>
+  </section>
+
+  <!-- SECTION 03: CAMPUS SQUADS A–E & WEEKLY OPERATING CADENCE -->
+  <section id="squads" class="py-16 lg:py-20 border-b border-ue-lightBorder dark:border-ue-darkBorder">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-widest text-ue-red font-semibold">03 / DUAL EXECUTION MATRIX · TIER 4 SQUADS</div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1">Five Regional Campus Squads (A – E)</h2>
+        </div>
+        <p class="text-xs sm:text-sm text-ue-muted dark:text-slate-400 max-w-md">
+          Every General Campus Ambassador belongs to a geographic squad while executing centralized campaign kits across all three pillars.
+        </p>
+      </div>
+
+      <!-- Squad Selector Pills -->
+      <div id="squadTabs" class="flex flex-wrap gap-2 mb-6"></div>
+
+      <!-- Selected Squad Detail Card -->
+      <div id="squadDetailPanel" class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-6 shadow-sm mb-10"></div>
+
+      <!-- Weekly Operating Cadence Strip -->
+      <div class="bg-ue-ink text-white rounded-xl p-6 sm:p-7">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
+          <div class="text-xs font-mono uppercase tracking-widest text-ue-red font-semibold">Weekly Operating Cadence</div>
+          <div class="text-[11px] font-mono text-slate-400">Chair ↔ Secretary ↔ 5 Core Leads ↔ General CAs</div>
+        </div>
+        <div class="grid md:grid-cols-3 gap-6">
+          <div class="border-l-2 border-ue-red pl-4">
+            <div class="text-xs font-mono text-slate-400">STEP 01 · 30 MIN CALL</div>
+            <div class="font-bold text-sm mt-1">Weekly Core Sync</div>
+            <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">
+              Chaired by Program Chair & coordinated by the Secretary with all 5 Core Leads. Review audited KPI logs, remove lead blockers, and lock next week's campaign kit.
+            </p>
+          </div>
+          <div class="border-l-2 border-slate-600 pl-4">
+            <div class="text-xs font-mono text-slate-400">STEP 02 · WITHIN 24 HOURS</div>
+            <div class="font-bold text-sm mt-1">Squad Deployment & Briefing</div>
+            <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">
+              Each Core Lead briefs their dedicated Squad (A–E) with bite-sized weekly deliverables, referral links, and campus activation deadlines.
+            </p>
+          </div>
+          <div class="border-l-2 border-slate-600 pl-4">
+            <div class="text-xs font-mono text-slate-400">STEP 03 · WEEKLY CUTOFF</div>
+            <div class="font-bold text-sm mt-1">Proof Submission & Audit</div>
+            <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">
+              General CAs submit referral confirmations, post links, and FYDP leads via the portal. Core Leads approve & Secretary audits the live leaderboard.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 04: LIVE LEADERBOARD + GOOGLE SHEETS SYNC + KPI SIMULATOR -->
+  <section id="leaderboard" class="py-16 lg:py-20 bg-white dark:bg-ue-darkCard/40 border-b border-ue-lightBorder dark:border-ue-darkBorder">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-widest text-ue-red font-semibold">04 / LIVE PERFORMANCE LEDGER</div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1">Monthly Squad & Ambassador Leaderboard</h2>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="openSheetSyncModal()" class="text-xs font-mono font-semibold px-3 py-2 rounded border border-ue-lightBorder dark:border-ue-darkBorder bg-ue-lightBg dark:bg-ue-darkCard hover:border-ue-red transition">
+            ⚙ Sync Google Sheet CSV
+          </button>
+          <button onclick="exportRosterCSV()" class="text-xs font-mono font-semibold px-3 py-2 rounded border border-ue-lightBorder dark:border-ue-darkBorder bg-ue-lightBg dark:bg-ue-darkCard hover:border-ue-red transition">
+            ↓ Export Monthly Log CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Spotlight Cards -->
+      <div class="grid md:grid-cols-2 gap-5 mb-8">
+        <div class="rounded-xl p-5 bg-gradient-to-r from-ue-ink to-slate-900 text-white border border-slate-800 flex items-center justify-between gap-4">
+          <div>
+            <div class="text-[10px] font-mono uppercase tracking-widest text-ue-red font-bold">Squad of the Month</div>
+            <div class="text-xl font-extrabold mt-1" id="spotlightSquadName">Squad A</div>
+            <div class="text-xs text-slate-300 mt-0.5" id="spotlightSquadMeta">Dhaka Zone A (Private Hub)</div>
+          </div>
+          <div class="text-right">
+            <div class="text-3xl font-extrabold font-mono text-white" id="spotlightSquadPts">0</div>
+            <div class="text-[10px] font-mono uppercase text-slate-400">Combined Points</div>
+          </div>
+        </div>
+        <div class="rounded-xl p-5 bg-ue-lightBg dark:bg-ue-darkCard border border-ue-red/30 flex items-center justify-between gap-4">
+          <div>
+            <div class="text-[10px] font-mono uppercase tracking-widest text-ue-red font-bold">Top Ambassador Spotlight</div>
+            <div class="text-xl font-extrabold mt-1" id="spotlightTopName">—</div>
+            <div class="text-xs text-ue-muted dark:text-slate-400 mt-0.5" id="spotlightTopMeta">—</div>
+          </div>
+          <div class="text-right">
+            <div class="text-3xl font-extrabold font-mono text-ue-red" id="spotlightTopPts">0</div>
+            <div class="text-[10px] font-mono uppercase text-ue-muted dark:text-slate-400">Verified Points</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Bar + Point Weights Legend -->
+      <div class="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center mb-4">
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="lbSquadFilter" onchange="renderLeaderboard()" class="text-xs font-medium bg-ue-lightBg dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2 focus:outline-none focus:border-ue-red">
+            <option value="ALL">All Squads (A–E)</option>
+            <option value="Squad A">Squad A · Dhaka Zone A</option>
+            <option value="Squad B">Squad B · Dhaka Zone B</option>
+            <option value="Squad C">Squad C · Engineering Hub</option>
+            <option value="Squad D">Squad D · Regional Univ</option>
+            <option value="Squad E">Squad E · Polytechnic</option>
+          </select>
+          <input id="lbSearchInput" oninput="renderLeaderboard()" type="text" placeholder="Search ambassador or campus..." class="text-xs bg-ue-lightBg dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2 w-56 focus:outline-none focus:border-ue-red" />
+        </div>
+        <div id="kpiWeightsLegend" class="flex flex-wrap items-center gap-2 text-[11px] font-mono text-ue-muted dark:text-slate-400"></div>
+      </div>
+
+      <!-- Responsive Table -->
+      <div class="overflow-x-auto bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl shadow-sm">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-ue-lightBorder dark:border-ue-darkBorder bg-ue-lightBg/70 dark:bg-ue-darkBg/60 font-mono text-[10px] uppercase tracking-wider text-ue-muted dark:text-slate-400">
+              <th class="py-3 px-4">#</th>
+              <th class="py-3 px-4">Ambassador</th>
+              <th class="py-3 px-4">Campus</th>
+              <th class="py-3 px-4">Squad</th>
+              <th class="py-3 px-4 text-center">Workshop Regs</th>
+              <th class="py-3 px-4 text-center">Verified Tech Leads</th>
+              <th class="py-3 px-4 text-center">Brand Posts</th>
+              <th class="py-3 px-4 text-right">Total Points</th>
+              <th class="py-3 px-4 text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBody" class="divide-y divide-ue-lightBorder dark:divide-ue-darkBorder"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 05: UPCOMING WORKSHOPS & REFERRAL REGISTRATION -->
+  <section id="workshops" class="py-16 lg:py-20 border-b border-ue-lightBorder dark:border-ue-darkBorder">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-widest text-ue-red font-semibold">05 / WORKSHOPS, BOOTCAMPS & REFERRAL ENGINE</div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1">Flagship Technical Programs</h2>
+        </div>
+        <p class="text-xs sm:text-sm text-ue-muted dark:text-slate-400 max-w-md">
+          Registrations using a Campus Ambassador referral link (<span class="font-mono text-ue-red">?ref=CODE</span>) are automatically routed to the Core Lead & Secretary approval queue.
+        </p>
+      </div>
+      <div id="workshopsGrid" class="grid md:grid-cols-3 gap-6"></div>
+    </div>
+  </section>
+
+  <!-- SECTION 06: CERTIFICATE VERIFIER & CLUB COLLABORATION HUB -->
+  <section id="verify" class="py-16 lg:py-20 bg-white dark:bg-ue-darkCard/40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid lg:grid-cols-2 gap-8">
+        <!-- Credential Verifier -->
+        <div class="bg-ue-lightBg dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-6 sm:p-7">
+          <div class="text-xs font-mono uppercase tracking-widest text-ue-red font-semibold">06A / CREDENTIAL REGISTRY</div>
+          <h3 class="text-xl font-extrabold mt-1">LinkedIn-Verifiable Certificate Checker</h3>
+          <p class="text-xs text-ue-muted dark:text-slate-400 mt-1.5">
+            Verify official Ulterior Engineering Campus Ambassador completion certificates and Executive Committee credentials.
+          </p>
+
+          <form onsubmit="verifyCertificate(event)" class="mt-5 flex gap-2">
+            <input id="certSearchInput" type="text" placeholder="Enter ID (e.g., UE-CA-2026-001)" class="flex-1 text-xs font-mono bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-ue-red" required />
+            <button type="submit" class="bg-ue-ink dark:bg-ue-red text-white text-xs font-semibold px-4 py-2.5 rounded-lg hover:bg-ue-red dark:hover:bg-ue-redDark transition">
+              Verify
+            </button>
+          </form>
+
+          <div class="flex flex-wrap gap-2 mt-3 text-[11px] font-mono text-ue-muted dark:text-slate-400">
+            <span>Try sample IDs:</span>
+            <button type="button" onclick="quickVerify('UE-CA-2026-001')" class="underline hover:text-ue-red">UE-CA-2026-001</button>
+            <button type="button" onclick="quickVerify('UE-EXCOM-2026-001')" class="underline hover:text-ue-red">UE-EXCOM-2026-001</button>
+          </div>
+
+          <div id="certResultBox" class="mt-5 hidden"></div>
+        </div>
+
+        <!-- Club Collaboration Pitch (Lead 5) -->
+        <div class="bg-ue-lightBg dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-6 sm:p-7">
+          <div class="text-xs font-mono uppercase tracking-widest text-ue-red font-semibold">06B / CAMPUS PARTNERSHIPS (LEAD 5)</div>
+          <h3 class="text-xl font-extrabold mt-1">Pitch a Club Collaboration or Seminar</h3>
+          <p class="text-xs text-ue-muted dark:text-slate-400 mt-1.5">
+            Representing an IEEE Student Branch, Robotics Club, or EEE/CSE Society? Partner with Ulterior Engineering for technical seminars, hardware demos, or campus booths.
+          </p>
+
+          <form onsubmit="submitClubPitch(event)" class="mt-4 space-y-3">
+            <div class="grid sm:grid-cols-2 gap-3">
+              <input id="clubName" type="text" placeholder="Club / Society Name (e.g., IEEE NSU SB)" required class="text-xs bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5 focus:outline-none focus:border-ue-red" />
+              <input id="clubUniversity" type="text" placeholder="University / Institute" required class="text-xs bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5 focus:outline-none focus:border-ue-red" />
+            </div>
+            <div class="grid sm:grid-cols-2 gap-3">
+              <input id="clubContact" type="text" placeholder="Contact Person & Email / Phone" required class="text-xs bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5 focus:outline-none focus:border-ue-red" />
+              <select id="clubType" class="text-xs bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5 focus:outline-none focus:border-ue-red">
+                <option>Joint Technical Seminar</option>
+                <option>Hands-on Hardware / SCADA Workshop</option>
+                <option>Campus Booth & Tech Showcase</option>
+                <option>FYDP Mentorship Session</option>
+              </select>
+            </div>
+            <button type="submit" class="w-full bg-ue-red hover:bg-ue-redDark text-white text-xs font-semibold py-2.5 rounded-lg transition">
+              Submit Partnership Inquiry to Lead 5 ↗
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-ue-lightBorder dark:border-ue-darkBorder py-10 text-xs text-ue-muted dark:text-slate-400">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2.5">
+        <span class="font-extrabold text-ue-ink dark:text-white tracking-tight">ULTERIOR ENGINEERING</span>
+        <span>·</span>
+        <span class="font-mono text-[11px]">ca.ulteriorengineering.com</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-4">
+        <a href="https://ulteriorengineering.com/" target="_blank" rel="noopener" class="hover:text-ue-red">Main Website</a>
+        <button onclick="openApplyModal('General Campus Ambassador')" class="hover:text-ue-red">Recruitment</button>
+        <button onclick="openAuthOrDashboard()" class="hover:text-ue-red">ExCom Login</button>
+        <button onclick="resetDemoData()" class="hover:text-ue-red font-mono text-[11px]">Reset Demo DB</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- FLOATING BOTTOM-LEFT THEME PILL (Matches Ulterior Engineering Main Site) -->
+  <div class="fixed bottom-4 left-4 z-40">
+    <div class="inline-flex items-center p-1 rounded-full bg-white/90 dark:bg-ue-darkCard/95 border border-ue-lightBorder dark:border-ue-darkBorder shadow-lg backdrop-blur">
+      <button id="themeLightBtn" onclick="setTheme('light')" class="px-3 py-1 rounded-full text-[11px] font-semibold transition flex items-center gap-1">
+        ☀ Light
+      </button>
+      <button id="themeDarkBtn" onclick="setTheme('dark')" class="px-3 py-1 rounded-full text-[11px] font-semibold transition flex items-center gap-1">
+        ☾ Dark
+      </button>
+    </div>
+  </div>
+
+  <!-- FLOATING BOTTOM-RIGHT "ASK UE CA" ASSISTANT -->
+  <div class="fixed bottom-4 right-4 z-40">
+    <button onclick="toggleAssistant()" class="bg-ue-red hover:bg-ue-redDark text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 transition">
+      <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+      <span>Ask UE CA</span>
+    </button>
+  </div>
+
+  <!-- ASSISTANT DRAWER -->
+  <div id="assistantDrawer" class="hidden fixed bottom-16 right-4 z-50 w-[92vw] max-w-sm bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-2xl shadow-2xl overflow-hidden fade-in">
+    <div class="bg-ue-ink text-white px-4 py-3 flex items-center justify-between">
+      <div>
+        <div class="text-xs font-bold flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-ue-red"></span>
+          UE CA Playbook Assistant
+        </div>
+        <div class="text-[10px] font-mono text-slate-400">4-Tier Governance & KPI Guide</div>
+      </div>
+      <button onclick="toggleAssistant()" class="text-slate-400 hover:text-white text-sm">✕</button>
+    </div>
+    <div id="assistantMessages" class="p-4 h-64 overflow-y-auto space-y-3 text-xs">
+      <div class="bg-ue-lightBg dark:bg-ue-darkBg p-3 rounded-lg border border-ue-lightBorder dark:border-ue-darkBorder">
+        Ask me about the <strong>4-Tier Team Structure</strong> (Chair → Secretary → Core Leads → General CAs), Squad clusters, KPI points, or certificate eligibility.
+      </div>
+    </div>
+    <div class="px-3 pb-2 flex flex-wrap gap-1.5">
+      <button onclick="askBot('Explain the 4-tier hierarchy')" class="text-[10px] px-2 py-1 rounded bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red">4-Tier Structure</button>
+      <button onclick="askBot('What does the Secretary do?')" class="text-[10px] px-2 py-1 rounded bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red">Secretary Role</button>
+      <button onclick="askBot('How are KPI points calculated?')" class="text-[10px] px-2 py-1 rounded bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red">KPI Points</button>
+      <button onclick="askBot('How do referral links work?')" class="text-[10px] px-2 py-1 rounded bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red">Referral Links</button>
+    </div>
+    <form onsubmit="handleBotInput(event)" class="p-3 border-t border-ue-lightBorder dark:border-ue-darkBorder flex gap-2">
+      <input id="botInput" type="text" placeholder="Ask about the playbook..." class="flex-1 text-xs bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2 focus:outline-none focus:border-ue-red" />
+      <button type="submit" class="bg-ue-red text-white text-xs font-semibold px-3 py-2 rounded-lg">Send</button>
+    </form>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="hidden fixed top-20 right-4 z-[70] max-w-sm bg-ue-ink text-white text-xs font-medium px-4 py-3 rounded-lg shadow-xl border-l-4 border-ue-red fade-in"></div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. AUTHENTICATION / 1-CLICK DEMO ROLE SWITCHER MODAL -->
+  <div id="authModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-2xl max-w-lg w-full p-6 shadow-2xl fade-in max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-ue-lightBorder dark:border-ue-darkBorder pb-3 mb-4">
+        <div>
+          <div class="text-[10px] font-mono uppercase tracking-widest text-ue-red font-bold">PHASE 2 · ROLE-BASED PORTAL</div>
+          <h3 class="text-lg font-extrabold">Sign In to CA / ExCom Dashboard</h3>
+        </div>
+        <button onclick="closeModal('authModal')" class="text-ue-muted hover:text-ue-red text-lg">✕</button>
+      </div>
+
+      <p class="text-xs text-ue-muted dark:text-slate-400 mb-4">
+        Choose a <strong>1-Click Instant Demo Access</strong> role across all 4 tiers to test the complete workflow, or sign in with a registered CA email/referral code.
+      </p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-5">
+        <button onclick="loginAsDemo('chair')" class="text-left p-3.5 rounded-xl border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red bg-ue-lightBg/60 dark:bg-ue-darkBg transition">
+          <div class="text-[10px] font-mono uppercase text-ue-red font-bold">Tier 1 · Super Admin</div>
+          <div class="font-bold text-sm mt-0.5">Program Chair</div>
+          <div class="text-[11px] text-ue-muted dark:text-slate-400 mt-0.5">Approvals, Certificates, KPI Config, Workshops</div>
+        </button>
+        <button onclick="loginAsDemo('secretary')" class="text-left p-3.5 rounded-xl border border-ue-red/40 hover:border-ue-red bg-ue-red/5 transition">
+          <div class="text-[10px] font-mono uppercase text-ue-red font-bold">Tier 2 · Executive Ops</div>
+          <div class="font-bold text-sm mt-0.5">Program Secretary</div>
+          <div class="text-[11px] text-ue-muted dark:text-slate-400 mt-0.5">Cross-Squad Audits, ExCom Sync, Broadcasts, CSV</div>
+        </button>
+        <button onclick="loginAsDemo('lead')" class="text-left p-3.5 rounded-xl border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red bg-ue-lightBg/60 dark:bg-ue-darkBg transition">
+          <div class="text-[10px] font-mono uppercase text-ue-red font-bold">Tier 3 · Squad ExCom</div>
+          <div class="font-bold text-sm mt-0.5">Core Team Lead</div>
+          <div class="text-[11px] text-ue-muted dark:text-slate-400 mt-0.5">KPI Approval Queue, Tech Lead Pipeline, Squad A</div>
+        </button>
+        <button onclick="loginAsDemo('ca')" class="text-left p-3.5 rounded-xl border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red bg-ue-lightBg/60 dark:bg-ue-darkBg transition">
+          <div class="text-[10px] font-mono uppercase text-ue-red font-bold">Tier 4 · Ambassador</div>
+          <div class="font-bold text-sm mt-0.5">General CA</div>
+          <div class="text-[11px] text-ue-muted dark:text-slate-400 mt-0.5">Referral Link, Submit Proof/Leads, Brand Kits</div>
+        </button>
+      </div>
+
+      <form onsubmit="loginWithRosterCode(event)" class="pt-4 border-t border-ue-lightBorder dark:border-ue-darkBorder space-y-2.5">
+        <div class="text-[11px] font-mono uppercase text-ue-muted dark:text-slate-400">Or Sign In with Ambassador Referral Code</div>
+        <div class="flex gap-2">
+          <input id="loginCodeInput" type="text" placeholder="e.g., UE-A101 or UE-B204" class="flex-1 text-xs font-mono bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2 focus:outline-none focus:border-ue-red" required />
+          <button type="submit" class="bg-ue-ink dark:bg-white text-white dark:text-ue-ink text-xs font-semibold px-4 py-2 rounded-lg hover:bg-ue-red dark:hover:bg-ue-red dark:hover:text-white transition">Enter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. FULL ROLE-BASED DASHBOARD OVERLAY -->
+  <div id="dashboardModal" class="hidden fixed inset-0 z-50 bg-ue-lightBg dark:bg-ue-darkBg overflow-y-auto fade-in">
+    <div class="sticky top-0 z-10 glass-panel border-b border-ue-lightBorder dark:border-ue-darkBorder">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <span class="px-2.5 py-1 rounded bg-ue-red text-white text-[10px] font-mono uppercase font-bold" id="dashRoleBadge">ROLE</span>
+          <div>
+            <div class="font-extrabold text-sm sm:text-base" id="dashUserName">User Name</div>
+            <div class="text-[11px] text-ue-muted dark:text-slate-400" id="dashUserSub">Role Details</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <select id="quickRoleSwitch" onchange="loginAsDemo(this.value)" class="hidden sm:block text-xs bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-2.5 py-1.5 font-medium">
+            <option value="chair">Switch View: Tier 1 · Program Chair</option>
+            <option value="secretary">Switch View: Tier 2 · Secretary</option>
+            <option value="lead">Switch View: Tier 3 · Core Lead</option>
+            <option value="ca">Switch View: Tier 4 · General CA</option>
+          </select>
+          <button onclick="closeDashboard()" class="text-xs font-semibold px-3 py-1.5 rounded border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red">Public Site</button>
+          <button onclick="logoutUser()" class="text-xs font-semibold px-3 py-1.5 rounded bg-ue-ink text-white dark:bg-slate-800 hover:bg-ue-red transition">Sign Out</button>
+        </div>
+      </div>
+    </div>
+    <div id="dashboardContent" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6"></div>
+  </div>
+
+  <!-- 3. RECRUITMENT APPLICATION MODAL -->
+  <div id="applyModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-2xl max-w-lg w-full p-6 shadow-2xl fade-in max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-ue-lightBorder dark:border-ue-darkBorder pb-3 mb-4">
+        <div>
+          <div class="text-[10px] font-mono uppercase tracking-widest text-ue-red font-bold">CALL FOR APPLICATIONS · 2026–2027</div>
+          <h3 class="text-lg font-extrabold">Ulterior Engineering CA Recruitment</h3>
+        </div>
+        <button onclick="closeModal('applyModal')" class="text-ue-muted hover:text-ue-red text-lg">✕</button>
+      </div>
+      <form onsubmit="submitApplication(event)" class="space-y-3.5 text-xs">
+        <div>
+          <label class="block font-semibold mb-1">Applying For (Tier / Role)</label>
+          <select id="applyRole" class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5">
+            <option value="Program Secretary">Tier 2 · Program Secretary</option>
+            <option value="Operations & CA HR Lead">Tier 3 · Operations & CA HR Lead (Squad A)</option>
+            <option value="Workshop & Course Growth Lead">Tier 3 · Workshop & Course Growth Lead (Squad B)</option>
+            <option value="Technical Project & Lead-Gen Lead">Tier 3 · Technical Project & Lead-Gen Lead (Squad C)</option>
+            <option value="Brand & Digital Publicity Lead">Tier 3 · Brand & Digital Publicity Lead (Squad D)</option>
+            <option value="Campus Partnerships & Events Lead">Tier 3 · Campus Partnerships & Events Lead (Squad E)</option>
+            <option value="General Campus Ambassador">Tier 4 · General Campus Ambassador</option>
+          </select>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold mb-1">Full Name</label>
+            <input id="applyName" type="text" required placeholder="Your full name" class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5" />
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">University / Institute</label>
+            <input id="applyCampus" type="text" required placeholder="e.g., NSU, BUET, CUET" class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5" />
+          </div>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold mb-1">Target Squad Cluster</label>
+            <select id="applySquad" class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5">
+              <option value="Squad A">Squad A · Dhaka Zone A (Private)</option>
+              <option value="Squad B">Squad B · Dhaka Zone B (Central/Public)</option>
+              <option value="Squad C">Squad C · Engineering & Tech Hub</option>
+              <option value="Squad D">Squad D · Regional General Univ</option>
+              <option value="Squad E">Squad E · Polytechnic & Emerging</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">Email Address</label>
+            <input id="applyEmail" type="email" required placeholder="student@university.edu" class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5" />
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">Prior Club / Leadership Experience & Month-1 Plan</label>
+          <textarea id="applyExp" rows="3" required placeholder="Mention IEEE, Robotics, EEE/CSE club leadership and how you would grow Ulterior Engineering on campus..." class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2"></textarea>
+        </div>
+        <button type="submit" class="w-full bg-ue-red hover:bg-ue-redDark text-white font-semibold py-2.5 rounded-lg transition">
+          Submit Application to Program Chair & Secretary ↗
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. WORKSHOP REGISTRATION MODAL -->
+  <div id="workshopModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-2xl max-w-md w-full p-6 shadow-2xl fade-in">
+      <div class="flex items-center justify-between border-b border-ue-lightBorder dark:border-ue-darkBorder pb-3 mb-4">
+        <div>
+          <div class="text-[10px] font-mono uppercase tracking-widest text-ue-red font-bold">WORKSHOP REGISTRATION</div>
+          <h3 id="wsModalTitle" class="text-base font-extrabold">Register</h3>
+        </div>
+        <button onclick="closeModal('workshopModal')" class="text-ue-muted hover:text-ue-red text-lg">✕</button>
+      </div>
+      <form onsubmit="submitWorkshopReg(event)" class="space-y-3 text-xs">
+        <input type="hidden" id="wsModalId" />
+        <div>
+          <label class="block font-semibold mb-1">Participant Full Name</label>
+          <input id="wsRegName" type="text" required placeholder="Full name" class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5" />
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">University / Department</label>
+          <input id="wsRegUniv" type="text" required placeholder="e.g., NSU — EEE" class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5" />
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">Email Address</label>
+          <input id="wsRegEmail" type="email" required placeholder="you@example.com" class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5" />
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">CA Referral Code <span class="font-normal text-ue-muted">(Optional — Auto-filled from link)</span></label>
+          <input id="wsRegRef" type="text" placeholder="e.g., UE-A101" class="w-full font-mono bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5" />
+        </div>
+        <button type="submit" class="w-full bg-ue-red hover:bg-ue-redDark text-white font-semibold py-2.5 rounded-lg transition">
+          Confirm Registration ↗
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. GOOGLE SHEETS CSV SYNC MODAL -->
+  <div id="sheetSyncModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-2xl max-w-lg w-full p-6 shadow-2xl fade-in">
+      <div class="flex items-center justify-between border-b border-ue-lightBorder dark:border-ue-darkBorder pb-3 mb-4">
+        <div>
+          <div class="text-[10px] font-mono uppercase tracking-widest text-ue-red font-bold">ZERO-COST LIVE BACKEND</div>
+          <h3 class="text-base font-extrabold">Sync Leaderboard from Google Sheets (CSV)</h3>
+        </div>
+        <button onclick="closeModal('sheetSyncModal')" class="text-ue-muted hover:text-ue-red text-lg">✕</button>
+      </div>
+      <p class="text-xs text-ue-muted dark:text-slate-400 leading-relaxed mb-3">
+        In Google Sheets, click <strong>File → Share → Publish to web → Comma-separated values (.csv)</strong>. Expected columns:
+        <code class="block mt-1.5 p-2 rounded bg-ue-lightBg dark:bg-ue-darkBg font-mono text-[11px]">Name,Campus,Squad,ReferralCode,WorkshopRegs,TechLeads,BrandPosts,Status</code>
+      </p>
+      <form onsubmit="syncGoogleSheetCSV(event)" class="space-y-3 text-xs">
+        <input id="csvUrlInput" type="url" required placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" class="w-full font-mono bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2.5" />
+        <div class="flex gap-2">
+          <button type="submit" class="flex-1 bg-ue-red hover:bg-ue-redDark text-white font-semibold py-2.5 rounded-lg transition">Fetch & Sync Roster</button>
+          <button type="button" onclick="closeModal('sheetSyncModal')" class="px-4 py-2.5 rounded-lg border border-ue-lightBorder dark:border-ue-darkBorder font-semibold">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script>
+// ============================================================
+// 1. PLAYBOOK STATIC ARCHITECTURE (4-TIER GOVERNANCE MODEL)
+// ============================================================
+const GOVERNANCE_NODES = {
+  chair: {
+    tier: 'TIER 1 · STRATEGIC HEAD',
+    excom: 'Program Chair (CA Lead)',
+    title: 'Program Chair (CA Lead)',
+    reporting: 'Reports directly to Ulterior Engineering Management; oversees the Program Secretary and overall program governance.',
+    mandate: 'Translates company business targets into monthly campus campaigns, chairs weekly Core Syncs, approves ambassador incentives & certificates, and resolves strategic escalations.',
+    kpis: [
+      'Quarterly company workshop & course conversion targets',
+      'Qualified FYDP / engineering service revenue pipeline',
+      'Program-wide retention and multi-campus brand authority'
+    ],
+    applyRole: 'Program Secretary',
+    cta: 'Apply for Executive Team ↗'
+  },
+  secretary: {
+    tier: 'TIER 2 · EXECUTIVE COORDINATION',
+    excom: 'General Secretary',
+    title: 'Program Secretary',
+    reporting: 'Reports directly to Program Chair; directly coordinates and supervises all 5 Core Team Leads.',
+    mandate: 'Acts as the operational backbone between the Chair and Core Team Leads. Runs ExCom documentation, enforces weekly reporting cutoffs, audits cross-squad KPI logs, and coordinates inter-portfolio campaign rollouts.',
+    kpis: [
+      '100% on-time weekly Core Sync & squad reporting compliance',
+      'Zero audit discrepancies on monthly KPI point ledgers',
+      'Cross-lead campaign kit alignment before launch deadlines'
+    ],
+    applyRole: 'Program Secretary',
+    cta: 'Apply as Program Secretary ↗'
+  },
+  lead1: {
+    tier: 'TIER 3 · CORE TEAM LEAD 01',
+    excom: 'ExCom: Operations & HR',
+    title: 'Operations & CA HR Lead',
+    reporting: 'Reports to Program Secretary & Chair; leads Squad A (Dhaka Zone A — Private Hub).',
+    mandate: 'Manages ambassador onboarding, central roster maintenance, weekly attendance tracking, monthly KPI tracking sheet updates, and certificate eligibility audits.',
+    kpis: [
+      'Active CA retention rate across all 5 squads',
+      'On-time weekly proof submission compliance',
+      'Accurate certificate eligibility ledger'
+    ],
+    applyRole: 'Operations & CA HR Lead',
+    cta: 'Apply for Operations Lead ↗'
+  },
+  lead2: {
+    tier: 'TIER 3 · CORE TEAM LEAD 02',
+    excom: 'ExCom: Membership & Growth',
+    title: 'Workshop & Course Growth Lead',
+    reporting: 'Reports to Program Secretary & Chair; leads Squad B (Dhaka Zone B — Central & Public).',
+    mandate: 'Designs registration campaigns for Ulterior Engineering workshops, bootcamps, and training courses; manages CA referral links/codes and conversion follow-ups.',
+    kpis: [
+      'Total verified workshop & course registrations via CAs',
+      'Referral link click-to-enrollment conversion rate',
+      'Repeat participant attendance across bootcamps'
+    ],
+    applyRole: 'Workshop & Course Growth Lead',
+    cta: 'Apply for Course Growth Lead ↗'
+  },
+  lead3: {
+    tier: 'TIER 3 · CORE TEAM LEAD 03',
+    excom: 'ExCom: Technical / Corporate',
+    title: 'Technical Project & Lead-Gen Lead',
+    reporting: 'Reports to Program Secretary & Chair; leads Squad C (Engineering & Tech Hub).',
+    mandate: 'Equips CAs with consultative pitch scripts to spot FYDP/thesis teams, robotics groups, or engineering service clients; screens and hands off verified leads to Ulterior Engineering engineers.',
+    kpis: [
+      'Number of qualified FYDP / hardware / service inquiries',
+      'Lead qualification accuracy & handoff speed',
+      'Converted technical project revenue attribution'
+    ],
+    applyRole: 'Technical Project & Lead-Gen Lead',
+    cta: 'Apply for Tech Lead-Gen Lead ↗'
+  },
+  lead4: {
+    tier: 'TIER 3 · CORE TEAM LEAD 04',
+    excom: 'ExCom: Media & PR',
+    title: 'Brand & Digital Publicity Lead',
+    reporting: 'Reports to Program Secretary & Chair; leads Squad D (Regional General Universities).',
+    mandate: 'Prepares ready-to-deploy campaign kits (captions, graphics briefs, LinkedIn/Facebook/story schedules) so every ambassador represents Ulterior Engineering cleanly and consistently.',
+    kpis: [
+      'Posting consistency within official campaign windows',
+      'Organic reach across LinkedIn & campus student groups',
+      'High-engagement student-facing storytelling quality'
+    ],
+    applyRole: 'Brand & Digital Publicity Lead',
+    cta: 'Apply for Brand & PR Lead ↗'
+  },
+  lead5: {
+    tier: 'TIER 3 · CORE TEAM LEAD 05',
+    excom: 'ExCom: Events & Partnerships',
+    title: 'Campus Partnerships & Events Lead',
+    reporting: 'Reports to Program Secretary & Chair; leads Squad E (Polytechnic & Emerging Campuses).',
+    mandate: 'Coordinates collaborations with university EEE, CSE, Robotics, and IEEE student branches for offline technical seminars, hands-on workshops, and campus booths.',
+    kpis: [
+      'Number of active university club partnerships',
+      'Executed offline seminars & campus activations',
+      'Co-branded club event attendance'
+    ],
+    applyRole: 'Campus Partnerships & Events Lead',
+    cta: 'Apply for Partnerships Lead ↗'
+  },
+  general: {
+    tier: 'TIER 4 · CAMPUS EXECUTION FORCE',
+    excom: 'Squads A – E Ambassadors',
+    title: 'General Campus Ambassadors',
+    reporting: 'Report strictly to their assigned Core Squad Lead (Tier 3).',
+    mandate: 'Execute all three company pillars on their home campus: promote workshops using personal referral links, identify FYDP/hardware project leads, share brand campaigns, and connect local clubs.',
+    kpis: [
+      'Confirmed workshop registrations via personal referral code',
+      'Verified FYDP / engineering service project leads',
+      'Timely campaign posts & weekly activity log discipline'
+    ],
+    applyRole: 'General Campus Ambassador',
+    cta: 'Apply as General CA ↗'
+  }
+};
+
+const CORE_LEADS_LIST = [
+  { id: 'lead1', num: '01', title: 'Operations & CA HR Lead', squad: 'Squad A', excom: 'Ops / HR', desc: 'Onboarding, roster tracking, attendance & KPI ledger upkeep.' },
+  { id: 'lead2', num: '02', title: 'Workshop & Course Growth Lead', squad: 'Squad B', excom: 'Growth', desc: 'Bootcamp registration drives, referral codes & conversions.' },
+  { id: 'lead3', num: '03', title: 'Technical Project & Lead-Gen Lead', squad: 'Squad C', excom: 'Technical', desc: 'FYDP, thesis, robotics & hardware client lead qualification.' },
+  { id: 'lead4', num: '04', title: 'Brand & Digital Publicity Lead', squad: 'Squad D', excom: 'Media & PR', desc: 'Ready-to-deploy campaign kits, captions & LinkedIn reach.' },
+  { id: 'lead5', num: '05', title: 'Campus Partnerships & Events Lead', squad: 'Squad E', excom: 'Events', desc: 'IEEE, Robotics & EEE/CSE club seminars and campus booths.' }
+];
+
+const SQUADS_META = {
+  'Squad A': {
+    cluster: 'Dhaka Zone A (Private Hub)',
+    leadPortfolio: 'Lead 1 · Operations & CA HR Lead',
+    coverage: 'Private universities concentrated around Bashundhara, Uttara, Banani, and Gulshan belts.',
+    campuses: ['North South University (NSU)', 'AIUB', 'IUB', 'BRAC University', 'UIU', 'East West University']
+  },
+  'Squad B': {
+    cluster: 'Dhaka Zone B (Central & Public)',
+    leadPortfolio: 'Lead 2 · Workshop & Course Growth Lead',
+    coverage: 'Public, engineering, and private campuses across Dhanmondi, Farmgate, Mirpur, and central Dhaka.',
+    campuses: ['BUET', 'University of Dhaka', 'AUST', 'MIST', 'UAP', 'Daffodil International Univ']
+  },
+  'Squad C': {
+    cluster: 'Engineering & Tech Hub',
+    leadPortfolio: 'Lead 3 · Technical Project & Lead-Gen Lead',
+    coverage: 'Dedicated engineering and science/technology universities outside central Dhaka.',
+    campuses: ['CUET', 'KUET', 'RUET', 'IUT', 'SUST', 'BUTEX']
+  },
+  'Squad D': {
+    cluster: 'Regional General Universities',
+    leadPortfolio: 'Lead 4 · Brand & Digital Publicity Lead',
+    coverage: 'Public and private general universities across major regional divisions.',
+    campuses: ['Rajshahi University', 'Chittagong University', 'Jahangirnagar Univ', 'Khulna University', 'Comilla University']
+  },
+  'Squad E': {
+    cluster: 'Polytechnic & Emerging Campuses',
+    leadPortfolio: 'Lead 5 · Campus Partnerships & Events Lead',
+    coverage: 'Diploma engineering institutes, polytechnics, colleges, and newly onboarded campuses.',
+    campuses: ['Dhaka Polytechnic Institute', 'BUBT', 'Green University', 'Chattogram Polytechnic', 'Sylhet Polytechnic']
+  }
+};
+
+// ============================================================
+// 2. SEEDED STATE + LOCALSTORAGE PERSISTENCE
+// ============================================================
+const DB_KEY = 'ue_ca_portal_v2_4tier_db';
+
+const DEFAULT_DB = {
+  kpiWeights: { workshopReg: 15, techLead: 40, brandPost: 5, clubEvent: 30, certThreshold: 120 },
+  secretaryName: 'Tahmid Hasan (Acting Secretary)',
+  roster: [
+    { id: 'ca1', name: 'Muntasir Rahman', campus: 'North South University', squad: 'Squad A', code: 'UE-A101', workshopRegs: 6, techLeads: 2, brandPosts: 9, clubEvents: 1, status: 'Active' },
+    { id: 'ca2', name: 'Syada Nusrat', campus: 'North South University', squad: 'Squad A', code: 'UE-A102', workshopRegs: 5, techLeads: 1, brandPosts: 8, clubEvents: 1, status: 'Active' },
+    { id: 'ca3', name: 'Farhan Sadik', campus: 'BUET', squad: 'Squad B', code: 'UE-B201', workshopRegs: 7, techLeads: 2, brandPosts: 6, clubEvents: 0, status: 'Active' },
+    { id: 'ca4', name: 'Nafisa Tabassum', campus: 'AUST', squad: 'Squad B', code: 'UE-B204', workshopRegs: 4, techLeads: 1, brandPosts: 10, clubEvents: 1, status: 'Active' },
+    { id: 'ca5', name: 'Rafiqul Islam', campus: 'CUET', squad: 'Squad C', code: 'UE-C301', workshopRegs: 3, techLeads: 3, brandPosts: 5, clubEvents: 1, status: 'Active' },
+    { id: 'ca6', name: 'Tanvir Ahmed', campus: 'KUET', squad: 'Squad C', code: 'UE-C305', workshopRegs: 4, techLeads: 1, brandPosts: 7, clubEvents: 0, status: 'Active' },
+    { id: 'ca7', name: 'Maliha Chowdhury', campus: 'Chittagong University', squad: 'Squad D', code: 'UE-D401', workshopRegs: 5, techLeads: 1, brandPosts: 9, clubEvents: 1, status: 'Active' },
+    { id: 'ca8', name: 'Sajidul Haque', campus: 'Dhaka Polytechnic Institute', squad: 'Squad E', code: 'UE-E501', workshopRegs: 4, techLeads: 1, brandPosts: 6, clubEvents: 1, status: 'Active' }
+  ],
+  workshops: [
+    { id: 'ws1', title: 'Industrial SCADA & ESP32 Telemetry Bootcamp', date: 'Dec 06, 2026', mode: 'Hybrid · Dhaka & Live', fee: 'BDT 500 (CA Discount)', seats: 60, regs: 42, tag: 'NGX / Automation' },
+    { id: 'ws2', title: 'Solar PV Microgrid & EV Power Systems Lab', date: 'Dec 14, 2026', mode: 'Hands-on Workshop', fee: 'BDT 650', seats: 45, regs: 31, tag: 'Energy & Control' },
+    { id: 'ws3', title: 'FYDP Hardware Architecture & PCB Prototyping Clinic', date: 'Dec 21, 2026', mode: 'Online Live + Q&A', fee: 'Free for CA Referrals', seats: 120, regs: 78, tag: 'Engineering Training' }
+  ],
+  submissions: [
+    { id: 'sub1', caCode: 'UE-A101', caName: 'Muntasir Rahman', squad: 'Squad A', type: 'Workshop Reg', detail: 'Referral enrollment for Industrial SCADA Bootcamp (Participant: Arif Hossain, AIUB)', date: '2026-11-21', status: 'Pending' },
+    { id: 'sub2', caCode: 'UE-C301', caName: 'Rafiqul Islam', squad: 'Squad C', type: 'Tech Lead', detail: 'FYDP 4-member EEE team needing custom BLDC motor controller & sensor dashboard', date: '2026-11-21', status: 'Pending' },
+    { id: 'sub3', caCode: 'UE-B204', caName: 'Nafisa Tabassum', squad: 'Squad B', type: 'Brand Post', detail: 'Shared SCADA Bootcamp poster in AUST EEE & Robotics group (1.4k reach)', date: '2026-11-20', status: 'Approved' }
+  ],
+  techPipeline: [
+    { id: 'UE-LEAD-2026-101', title: 'Smart Solar Inverter Monitoring FYDP', campus: 'CUET', submittedBy: 'Rafiqul Islam (UE-C301)', stage: 'Handoff to UE', value: 'Hardware + Firmware' },
+    { id: 'UE-LEAD-2026-102', title: 'Autonomous Line-Following Industrial AGV', campus: 'North South University', submittedBy: 'Muntasir Rahman (UE-A101)', stage: 'Qualified', value: 'Robotics Consulting' },
+    { id: 'UE-LEAD-2026-103', title: 'IoT Pump Vibration SCADA Testbed', campus: 'BUET', submittedBy: 'Farhan Sadik (UE-B201)', stage: 'New', value: 'Sensor & Cloud Integration' }
+  ],
+  campaignKits: [
+    { id: 'kit1', title: 'SCADA & Industrial AI Bootcamp — LinkedIn & Group Caption', author: 'Lead 4 · Brand & PR', date: '2026-11-20', copy: 'Ready to bridge university EEE/CSE theory with real industrial automation? Join Ulterior Engineering’s hands-on Industrial SCADA & ESP32 Telemetry Bootcamp! Register via my campus link below for priority student access. #UlteriorEngineering #SCADA #EngineeringBangladesh' },
+    { id: 'kit2', title: 'FYDP & Thesis Hardware Support — Consultative Outreach Script', author: 'Lead 3 · Tech Lead-Gen', date: '2026-11-19', copy: 'Hey! Saw your senior design team is working on a hardware/energy prototype this semester. Ulterior Engineering mentors FYDP teams on PCB design, embedded telemetry, and industrial testing—happy to connect you for a quick technical scoping chat if helpful!' }
+  ],
+  applications: [
+    { id: 'app1', name: 'Nabil Mahmud', role: 'Program Secretary', campus: 'North South University', squad: 'Squad A', email: 'nabil@nsu.edu', exp: 'Former General Secretary at campus Robotics Club; managed 40+ volunteers and weekly KPI trackers.', status: 'Pending' },
+    { id: 'app2', name: 'Tasnim Jahan', role: 'Brand & Digital Publicity Lead', campus: 'BRAC University', squad: 'Squad D', email: 'tasnim@bracu.ac.bd', exp: 'Media Coordinator for IEEE Student Branch; led 12 digital technical campaigns.', status: 'Pending' },
+    { id: 'app3', name: 'Zayed Al-Mamun', role: 'General Campus Ambassador', campus: 'RUET', squad: 'Squad C', email: 'zayed@ruet.ac.bd', exp: 'Active EEE sophomore connecting senior FYDP teams and organizing robotics workshops.', status: 'Pending' }
+  ],
+  certificates: [
+    { id: 'UE-EXCOM-2026-001', holder: 'Md. Adnan Chowdhury Ifti', role: 'Program Chair (Campus Ambassador Lead)', campus: 'North South University', issued: '2026-11-01', status: 'Valid' },
+    { id: 'UE-CA-2026-001', holder: 'Muntasir Rahman', role: 'Campus Ambassador — Squad A Top Performer', campus: 'North South University', issued: '2026-11-15', status: 'Valid' },
+    { id: 'UE-CA-2026-002', holder: 'Rafiqul Islam', role: 'Campus Ambassador — Tech Lead-Gen Distinction', campus: 'CUET', issued: '2026-11-18', status: 'Valid' }
+  ],
+  clubPitches: [
+    { id: 'cp1', club: 'IEEE NSU Student Branch', university: 'North South University', contact: 'Events Wing', type: 'Joint Technical Seminar', date: '2026-11-18' }
+  ]
+};
+
+let db = loadDB();
+let activeSquad = 'Squad A';
+let currentUser = null; // { role: 'chair'|'secretary'|'lead'|'ca', name, sub, caCode?, squad? }
+
+function loadDB() {
+  try {
+    const raw = localStorage.getItem(DB_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_DB));
+}
+function saveDB() {
+  try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {}
+  refreshAllViews();
+}
+function resetDemoData() {
+  if (!confirm('Reset all local demo changes back to the default Playbook seed data?')) return;
+  localStorage.removeItem(DB_KEY);
+  db = JSON.parse(JSON.stringify(DEFAULT_DB));
+  refreshAllViews();
+  showToast('Demo database reset to default 4-Tier Playbook state.');
+}
+
+function calcPoints(ca) {
+  const w = db.kpiWeights;
+  return (ca.workshopRegs * w.workshopReg) +
+         (ca.techLeads * w.techLead) +
+         (ca.brandPosts * w.brandPost) +
+         ((ca.clubEvents || 0) * w.clubEvent);
+}
+
+// ============================================================
+// 3. PUBLIC RENDERING FUNCTIONS
+// ============================================================
+function selectNode(key) {
+  const data = GOVERNANCE_NODES[key];
+  if (!data) return;
+  document.querySelectorAll('.node-btn').forEach(el => el.classList.remove('node-active'));
+  const target = document.getElementById('node-' + key);
+  if (target) target.classList.add('node-active');
+
+  document.getElementById('inspTier').textContent = data.tier;
+  document.getElementById('inspExcom').textContent = data.excom;
+  document.getElementById('inspTitle').textContent = data.title;
+  document.getElementById('inspReporting').textContent = data.reporting;
+  document.getElementById('inspMandate').textContent = data.mandate;
+  document.getElementById('inspKpis').innerHTML = data.kpis.map(k => `<li class="flex items-start gap-2"><span class="text-ue-red font-bold">▸</span><span>${escapeHTML(k)}</span></li>`).join('');
+  const btn = document.getElementById('inspApplyBtn');
+  btn.textContent = data.cta;
+  btn.onclick = () => openApplyModal(data.applyRole);
+}
+
+function renderCoreLeads() {
+  const grid = document.getElementById('coreLeadsGrid');
+  grid.innerHTML = CORE_LEADS_LIST.map(l => `
+    <div class="bg-ue-lightBg dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-4 flex flex-col justify-between hover:border-ue-red transition">
+      <div>
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-mono font-bold text-ue-red">LEAD ${l.num}</span>
+          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder">${l.squad}</span>
+        </div>
+        <h4 class="font-bold text-sm mt-2 leading-snug">${l.title}</h4>
+        <div class="text-[10px] font-mono text-ue-muted dark:text-slate-400 mt-0.5">ExCom: ${l.excom}</div>
+        <p class="text-xs text-ue-muted dark:text-slate-400 mt-2 leading-relaxed">${l.desc}</p>
+      </div>
+      <button onclick="openApplyModal('${l.title}')" class="mt-4 w-full text-center text-[11px] font-semibold py-2 rounded bg-white dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red hover:text-ue-red transition">
+        Apply for Lead ${l.num} ↗
+      </button>
+    </div>
+  `).join('');
+  const secEl = document.getElementById('secretaryDisplayName');
+  if (secEl) secEl.textContent = db.secretaryName;
+}
+
+function renderSquads() {
+  const tabs = document.getElementById('squadTabs');
+  tabs.innerHTML = Object.keys(SQUADS_META).map(sq => {
+    const isAct = sq === activeSquad;
+    return `<button onclick="setSquad('${sq}')" class="px-4 py-2 rounded-lg text-xs font-semibold transition border ${isAct ? 'bg-ue-red text-white border-ue-red shadow-sm' : 'bg-white dark:bg-ue-darkCard border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red'}">${sq} · ${SQUADS_META[sq].cluster.split('(')[0].trim()}</button>`;
+  }).join('');
+
+  const meta = SQUADS_META[activeSquad];
+  const members = db.roster.filter(r => r.squad === activeSquad);
+  const totalPts = members.reduce((acc, m) => acc + calcPoints(m), 0);
+
+  document.getElementById('squadDetailPanel').innerHTML = `
+    <div class="grid md:grid-cols-12 gap-6 items-start">
+      <div class="md:col-span-7 space-y-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="px-2.5 py-0.5 rounded bg-ue-ink text-white dark:bg-white dark:text-ue-ink text-[10px] font-mono font-bold uppercase">${activeSquad}</span>
+          <span class="text-xs font-mono text-ue-red font-semibold">${meta.leadPortfolio}</span>
+        </div>
+        <h3 class="text-xl font-extrabold">${meta.cluster}</h3>
+        <p class="text-xs text-ue-muted dark:text-slate-300 leading-relaxed">${meta.coverage}</p>
+        <div>
+          <div class="text-[10px] font-mono uppercase tracking-wider text-ue-muted dark:text-slate-400 mb-2">Target Institutional Coverage</div>
+          <div class="flex flex-wrap gap-2">
+            ${meta.campuses.map(c => `<span class="text-xs px-2.5 py-1 rounded-md bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder">${c}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="md:col-span-5 bg-ue-lightBg dark:bg-ue-darkBg rounded-xl p-5 border border-ue-lightBorder dark:border-ue-darkBorder space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <div class="text-2xl font-extrabold font-mono">${members.length}</div>
+            <div class="text-[10px] font-mono uppercase text-ue-muted dark:text-slate-400">Active Ambassadors</div>
+          </div>
+          <div>
+            <div class="text-2xl font-extrabold font-mono text-ue-red">${totalPts}</div>
+            <div class="text-[10px] font-mono uppercase text-ue-muted dark:text-slate-400">Monthly Squad Points</div>
+          </div>
+        </div>
+        <div class="border-t border-ue-lightBorder dark:border-ue-darkBorder pt-3">
+          <div class="text-[10px] font-mono uppercase text-ue-muted dark:text-slate-400 mb-2">Current Squad Roster</div>
+          <div class="space-y-1.5 text-xs">
+            ${members.length ? members.map(m => `<div class="flex justify-between"><span>${escapeHTML(m.name)} <span class="text-ue-muted">(${escapeHTML(m.campus)})</span></span><span class="font-mono font-semibold">${calcPoints(m)} pts</span></div>`).join('') : '<div class="text-ue-muted">Recruiting ambassadors for this squad.</div>'}
+          </div>
+        </div>
+        <button onclick="openApplyModal('General Campus Ambassador', '${activeSquad}')" class="w-full bg-ue-ink dark:bg-ue-red text-white text-xs font-semibold py-2 rounded-lg hover:bg-ue-red transition">
+          Join ${activeSquad} as Campus Ambassador ↗
+        </button>
+      </div>
+    </div>
+  `;
+}
+function setSquad(sq) { activeSquad = sq; renderSquads(); }
+
+function renderLeaderboard() {
+  const filter = document.getElementById('lbSquadFilter').value;
+  const q = document.getElementById('lbSearchInput').value.trim().toLowerCase();
+
+  // Compute squad totals for spotlight
+  const squadScores = {};
+  Object.keys(SQUADS_META).forEach(s => squadScores[s] = 0);
+  db.roster.forEach(ca => { squadScores[ca.squad] = (squadScores[ca.squad] || 0) + calcPoints(ca); });
+  const topSquad = Object.entries(squadScores).sort((a, b) => b[1] - a[1])[0];
+
+  const rankedAll = [...db.roster].sort((a, b) => calcPoints(b) - calcPoints(a));
+  const topCA = rankedAll[0];
+
+  if (topSquad) {
+    document.getElementById('spotlightSquadName').textContent = topSquad[0];
+    document.getElementById('spotlightSquadMeta').textContent = SQUADS_META[topSquad[0]]?.cluster || '';
+    document.getElementById('spotlightSquadPts').textContent = topSquad[1];
+  }
+  if (topCA) {
+    document.getElementById('spotlightTopName').textContent = topCA.name;
+    document.getElementById('spotlightTopMeta').textContent = `${topCA.campus} · ${topCA.squad} (${topCA.code})`;
+    document.getElementById('spotlightTopPts').textContent = calcPoints(topCA);
+  }
+
+  // Hero telemetry
+  document.getElementById('statActiveCAs').textContent = db.roster.length;
+  document.getElementById('statWorkshops').textContent = db.roster.reduce((s, r) => s + r.workshopRegs, 0);
+  document.getElementById('statLeads').textContent = db.roster.reduce((s, r) => s + r.techLeads, 0);
+
+  // KPI legend
+  const w = db.kpiWeights;
+  document.getElementById('kpiWeightsLegend').innerHTML = `
+    <span class="px-2 py-1 rounded bg-ue-lightBg dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">Reg: +${w.workshopReg}</span>
+    <span class="px-2 py-1 rounded bg-ue-lightBg dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">Tech Lead: +${w.techLead}</span>
+    <span class="px-2 py-1 rounded bg-ue-lightBg dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">Post: +${w.brandPost}</span>
+    <span class="px-2 py-1 rounded bg-ue-lightBg dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder">Cert Min: ${w.certThreshold} pts</span>
+  `;
+
+  const filtered = rankedAll.filter(ca => {
+    const matchSq = filter === 'ALL' || ca.squad === filter;
+    const matchQ = !q || ca.name.toLowerCase().includes(q) || ca.campus.toLowerCase().includes(q) || ca.code.toLowerCase().includes(q);
+    return matchSq && matchQ;
+  });
+
+  document.getElementById('leaderboardBody').innerHTML = filtered.map((ca, idx) => {
+    const pts = calcPoints(ca);
+    const certReady = pts >= w.certThreshold;
+    return `
+      <tr class="hover:bg-ue-lightBg/60 dark:hover:bg-ue-darkBg/50 transition">
+        <td class="py-3 px-4 font-mono font-bold ${idx < 3 ? 'text-ue-red' : 'text-ue-muted'}">#${idx + 1}</td>
+        <td class="py-3 px-4">
+          <div class="font-semibold">${escapeHTML(ca.name)}</div>
+          <div class="text-[10px] font-mono text-ue-muted">${escapeHTML(ca.code)}</div>
+        </td>
+        <td class="py-3 px-4 text-ue-muted dark:text-slate-300">${escapeHTML(ca.campus)}</td>
+        <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder font-mono text-[10px]">${escapeHTML(ca.squad)}</span></td>
+        <td class="py-3 px-4 text-center font-mono">${ca.workshopRegs}</td>
+        <td class="py-3 px-4 text-center font-mono">${ca.techLeads}</td>
+        <td class="py-3 px-4 text-center font-mono">${ca.brandPosts}</td>
+        <td class="py-3 px-4 text-right font-mono font-extrabold text-sm">${pts}</td>
+        <td class="py-3 px-4 text-center">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${certReady ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'}">
+            ${certReady ? 'Cert Eligible' : 'In Progress'}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join('') || `<tr><td colspan="9" class="py-8 text-center text-ue-muted">No ambassadors matched your filter.</td></tr>`;
+}
+
+function renderWorkshops() {
+  document.getElementById('workshopsGrid').innerHTML = db.workshops.map(ws => {
+    const pct = Math.min(100, Math.round((ws.regs / ws.seats) * 100));
+    return `
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5 flex flex-col justify-between shadow-sm hover:border-ue-red transition">
+        <div>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-ue-red/10 text-ue-red font-semibold">${escapeHTML(ws.tag)}</span>
+            <span class="text-[11px] font-mono text-ue-muted">${escapeHTML(ws.date)}</span>
+          </div>
+          <h3 class="text-base font-extrabold mt-3 leading-snug">${escapeHTML(ws.title)}</h3>
+          <div class="text-xs text-ue-muted dark:text-slate-400 mt-1.5">${escapeHTML(ws.mode)} · <strong>${escapeHTML(ws.fee)}</strong></div>
+          <div class="mt-4">
+            <div class="flex justify-between text-[11px] font-mono mb-1">
+              <span>${ws.regs} / ${ws.seats} seats filled</span>
+              <span>${pct}%</span>
+            </div>
+            <div class="w-full h-1.5 bg-ue-lightBg dark:bg-ue-darkBg rounded-full overflow-hidden">
+              <div class="h-full bg-ue-red rounded-full" style="width:${pct}%"></div>
+            </div>
+          </div>
+        </div>
+        <button onclick="openWorkshopModal('${ws.id}')" class="mt-5 w-full bg-ue-ink dark:bg-ue-red text-white text-xs font-semibold py-2.5 rounded-lg hover:bg-ue-red dark:hover:bg-ue-redDark transition">
+          Register with Referral Tracking ↗
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// 4. REFERRAL TRACKING, CERTIFICATES, APPLICATIONS, CSV SYNC
+// ============================================================
+let detectedRefCode = '';
+
+function checkReferralParam() {
+  const params = new URLSearchParams(window.location.search);
+  const ref = params.get('ref');
+  if (!ref) return;
+  detectedRefCode = ref.trim().toUpperCase();
+  const ca = db.roster.find(r => r.code.toUpperCase() === detectedRefCode);
+  document.getElementById('refBannerCode').textContent = detectedRefCode;
+  document.getElementById('refBannerName').textContent = ca ? `${ca.name} (${ca.campus})` : 'Verified CA';
+  document.getElementById('referralBanner').classList.remove('hidden');
+}
+
+function openWorkshopModal(wsId) {
+  const ws = db.workshops.find(w => w.id === wsId);
+  if (!ws) return;
+  document.getElementById('wsModalId').value = ws.id;
+  document.getElementById('wsModalTitle').textContent = ws.title;
+  document.getElementById('wsRegRef').value = detectedRefCode || '';
+  openModal('workshopModal');
+}
+
+function submitWorkshopReg(e) {
+  e.preventDefault();
+  const wsId = document.getElementById('wsModalId').value;
+  const name = document.getElementById('wsRegName').value.trim();
+  const univ = document.getElementById('wsRegUniv').value.trim();
+  const refCode = document.getElementById('wsRegRef').value.trim().toUpperCase();
+
+  const ws = db.workshops.find(w => w.id === wsId);
+  if (ws) ws.regs += 1;
+
+  if (refCode) {
+    const ca = db.roster.find(r => r.code.toUpperCase() === refCode);
+    db.submissions.unshift({
+      id: 'sub-' + Date.now(),
+      caCode: refCode,
+      caName: ca ? ca.name : 'External Referral',
+      squad: ca ? ca.squad : 'Squad A',
+      type: 'Workshop Reg',
+      detail: `Auto-tracked registration for "${ws ? ws.title : 'Workshop'}" — Participant: ${name} (${univ})`,
+      date: new Date().toISOString().slice(0, 10),
+      status: 'Pending'
+    });
+  }
+
+  saveDB();
+  e.target.reset();
+  closeModal('workshopModal');
+  showToast(refCode
+    ? `Registered! Referral ${refCode} logged to Core Lead & Secretary approval queue.`
+    : `Registration confirmed for ${name}!`
+  );
+}
+
+function quickVerify(id) {
+  document.getElementById('certSearchInput').value = id;
+  verifyCertificate({ preventDefault: () => {} });
+}
+
+function verifyCertificate(e) {
+  e.preventDefault();
+  const id = document.getElementById('certSearchInput').value.trim().toUpperCase();
+  const box = document.getElementById('certResultBox');
+  const cert = db.certificates.find(c => c.id.toUpperCase() === id);
+  box.classList.remove('hidden');
+
+  if (cert && cert.status === 'Valid') {
+    box.innerHTML = `
+      <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-1.5 fade-in">
+        <div class="flex items-center justify-between">
+          <span class="font-mono font-bold text-emerald-700 dark:text-emerald-400">✓ VERIFIED CREDENTIAL</span>
+          <span class="font-mono text-[11px]">${escapeHTML(cert.id)}</span>
+        </div>
+        <div class="text-sm font-extrabold">${escapeHTML(cert.holder)}</div>
+        <div><strong>Role:</strong> ${escapeHTML(cert.role)}</div>
+        <div><strong>Institution:</strong> ${escapeHTML(cert.campus)} · <strong>Issued:</strong> ${escapeHTML(cert.issued)}</div>
+      </div>`;
+  } else if (cert && cert.status === 'Revoked') {
+    box.innerHTML = `<div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs font-semibold text-amber-700 dark:text-amber-400">⚠ Certificate ${escapeHTML(cert.id)} has been revoked by Program Chair.</div>`;
+  } else {
+    box.innerHTML = `<div class="p-4 rounded-xl bg-ue-red/10 border border-ue-red/30 text-xs font-semibold text-ue-red">✕ No official credential found for ID "${escapeHTML(id)}".</div>`;
+  }
+}
+
+function submitClubPitch(e) {
+  e.preventDefault();
+  db.clubPitches.unshift({
+    id: 'cp-' + Date.now(),
+    club: document.getElementById('clubName').value.trim(),
+    university: document.getElementById('clubUniversity').value.trim(),
+    contact: document.getElementById('clubContact').value.trim(),
+    type: document.getElementById('clubType').value,
+    date: new Date().toISOString().slice(0, 10)
+  });
+  saveDB();
+  e.target.reset();
+  showToast('Partnership inquiry routed to Lead 5 (Campus Partnerships) & Secretary!');
+}
+
+function openApplyModal(role, squad) {
+  if (role) document.getElementById('applyRole').value = role;
+  if (squad) document.getElementById('applySquad').value = squad;
+  openModal('applyModal');
+}
+
+function submitApplication(e) {
+  e.preventDefault();
+  db.applications.unshift({
+    id: 'app-' + Date.now(),
+    role: document.getElementById('applyRole').value,
+    name: document.getElementById('applyName').value.trim(),
+    campus: document.getElementById('applyCampus').value.trim(),
+    squad: document.getElementById('applySquad').value,
+    email: document.getElementById('applyEmail').value.trim(),
+    exp: document.getElementById('applyExp').value.trim(),
+    status: 'Pending'
+  });
+  saveDB();
+  e.target.reset();
+  closeModal('applyModal');
+  showToast('Application submitted! Reviewable immediately in Program Chair & Secretary dashboards.');
+}
+
+function openSheetSyncModal() { openModal('sheetSyncModal'); }
+
+async function syncGoogleSheetCSV(e) {
+  e.preventDefault();
+  const url = document.getElementById('csvUrlInput').value.trim();
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Could not fetch CSV');
+    const text = await res.text();
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) throw new Error('CSV appears empty');
+    const parsed = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+      if (!cols[0]) continue;
+      parsed.push({
+        id: 'csv-' + i,
+        name: cols[0],
+        campus: cols[1] || 'Campus',
+        squad: SQUADS_META[cols[2]] ? cols[2] : 'Squad A',
+        code: cols[3] || ('UE-S' + (100 + i)),
+        workshopRegs: parseInt(cols[4], 10) || 0,
+        techLeads: parseInt(cols[5], 10) || 0,
+        brandPosts: parseInt(cols[6], 10) || 0,
+        clubEvents: 0,
+        status: cols[7] || 'Active'
+      });
+    }
+    if (!parsed.length) throw new Error('No valid rows found');
+    db.roster = parsed;
+    saveDB();
+    closeModal('sheetSyncModal');
+    showToast(`Synced ${parsed.length} ambassadors from Google Sheets!`);
+  } catch (err) {
+    showToast('Sync failed: Ensure sheet is published as public CSV. (' + err.message + ')');
+  }
+}
+
+function exportRosterCSV() {
+  const header = 'Name,Campus,Squad,ReferralCode,WorkshopRegs,TechLeads,BrandPosts,TotalPoints,Status\n';
+  const rows = db.roster.map(r => `"${r.name}","${r.campus}","${r.squad}","${r.code}",${r.workshopRegs},${r.techLeads},${r.brandPosts},${calcPoints(r)},"${r.status}"`).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `UE_CA_Monthly_Log_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  showToast('Exported Monthly Squad Performance Log (.csv).');
+}
+
+// ============================================================
+// 5. AUTHENTICATION & 4-TIER ROLE-BASED DASHBOARDS
+// ============================================================
+function openAuthOrDashboard(preferredRole) {
+  if (preferredRole) {
+    loginAsDemo(preferredRole);
+    return;
+  }
+  if (currentUser) {
+    openDashboard();
+  } else {
+    openModal('authModal');
+  }
+}
+
+function loginAsDemo(role) {
+  if (role === 'chair') {
+    currentUser = { role: 'chair', name: 'Md. Adnan Chowdhury Ifti', sub: 'Tier 1 · Program Chair (Super Admin)' };
+  } else if (role === 'secretary') {
+    currentUser = { role: 'secretary', name: db.secretaryName, sub: 'Tier 2 · Program Secretary (Executive Operations & Audit)' };
+  } else if (role === 'lead') {
+    currentUser = { role: 'lead', name: 'Operations & CA HR Lead', sub: 'Tier 3 · Core Team Lead · Squad A (Dhaka Zone A)', squad: 'Squad A' };
+  } else {
+    const firstCA = db.roster[0];
+    currentUser = { role: 'ca', name: firstCA.name, sub: `Tier 4 · General CA · ${firstCA.campus} (${firstCA.squad})`, caCode: firstCA.code, squad: firstCA.squad };
+  }
+  closeModal('authModal');
+  updateAuthHeader();
+  openDashboard();
+}
+
+function loginWithRosterCode(e) {
+  e.preventDefault();
+  const code = document.getElementById('loginCodeInput').value.trim().toUpperCase();
+  const ca = db.roster.find(r => r.code.toUpperCase() === code);
+  if (!ca) {
+    showToast('Referral code not found. Try UE-A101 or use 1-Click Demo Access.');
+    return;
+  }
+  currentUser = { role: 'ca', name: ca.name, sub: `Tier 4 · General CA · ${ca.campus} (${ca.squad})`, caCode: ca.code, squad: ca.squad };
+  closeModal('authModal');
+  updateAuthHeader();
+  openDashboard();
+}
+
+function updateAuthHeader() {
+  const lbl = document.getElementById('authBtnLabel');
+  const dot = document.getElementById('authBtnDot');
+  if (currentUser) {
+    lbl.textContent = `${currentUser.role.toUpperCase()} Dashboard`;
+    dot.classList.remove('bg-white/80');
+    dot.classList.add('bg-emerald-300');
+  } else {
+    lbl.textContent = 'Sign In / Portal';
+    dot.classList.add('bg-white/80');
+    dot.classList.remove('bg-emerald-300');
+  }
+}
+
+function openDashboard() {
+  if (!currentUser) return openModal('authModal');
+  document.getElementById('dashRoleBadge').textContent =
+    currentUser.role === 'chair' ? 'TIER 1 · CHAIR' :
+    currentUser.role === 'secretary' ? 'TIER 2 · SECRETARY' :
+    currentUser.role === 'lead' ? 'TIER 3 · CORE LEAD' : 'TIER 4 · GENERAL CA';
+  document.getElementById('dashUserName').textContent = currentUser.name;
+  document.getElementById('dashUserSub').textContent = currentUser.sub;
+  document.getElementById('quickRoleSwitch').value = currentUser.role;
+  document.getElementById('dashboardModal').classList.remove('hidden');
+  renderDashboard();
+}
+
+function closeDashboard() {
+  document.getElementById('dashboardModal').classList.add('hidden');
+}
+
+function logoutUser() {
+  currentUser = null;
+  updateAuthHeader();
+  closeDashboard();
+  showToast('Signed out of dashboard.');
+}
+
+function renderDashboard() {
+  if (!currentUser) return;
+  const container = document.getElementById('dashboardContent');
+  if (currentUser.role === 'chair') renderChairDashboard(container);
+  else if (currentUser.role === 'secretary') renderSecretaryDashboard(container);
+  else if (currentUser.role === 'lead') renderLeadDashboard(container);
+  else renderCADashboard(container);
+}
+
+// --- TIER 1: PROGRAM CHAIR DASHBOARD ---
+function renderChairDashboard(el) {
+  const squadTotals = Object.keys(SQUADS_META).map(sq => ({
+    sq,
+    pts: db.roster.filter(r => r.squad === sq).reduce((s, r) => s + calcPoints(r), 0),
+    count: db.roster.filter(r => r.squad === sq).length
+  }));
+  const maxPts = Math.max(100, ...squadTotals.map(s => s.pts));
+  const pendingApps = db.applications.filter(a => a.status === 'Pending');
+
+  el.innerHTML = `
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-4">
+        <div class="text-[10px] font-mono uppercase text-ue-muted">Total Roster</div>
+        <div class="text-2xl font-extrabold font-mono mt-1">${db.roster.length} CAs</div>
+      </div>
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-4">
+        <div class="text-[10px] font-mono uppercase text-ue-muted">Pending Recruitment</div>
+        <div class="text-2xl font-extrabold font-mono text-ue-red mt-1">${pendingApps.length}</div>
+      </div>
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-4">
+        <div class="text-[10px] font-mono uppercase text-ue-muted">Issued Certificates</div>
+        <div class="text-2xl font-extrabold font-mono mt-1">${db.certificates.filter(c => c.status === 'Valid').length}</div>
+      </div>
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-4">
+        <div class="text-[10px] font-mono uppercase text-ue-muted">Tech Lead Pipeline</div>
+        <div class="text-2xl font-extrabold font-mono text-emerald-600 mt-1">${db.techPipeline.length}</div>
+      </div>
+    </div>
+
+    <!-- Squad Benchmark + Secretary Appointment -->
+    <div class="grid lg:grid-cols-12 gap-6">
+      <div class="lg:col-span-7 bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5">
+        <h3 class="font-bold text-sm mb-4">Squad A–E Performance Benchmark (Live Points)</h3>
+        <div class="space-y-3">
+          ${squadTotals.map(s => `
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="font-semibold">${s.sq} <span class="text-ue-muted font-normal">(${s.count} CAs)</span></span>
+                <span class="font-mono font-bold">${s.pts} pts</span>
+              </div>
+              <div class="w-full h-2.5 bg-ue-lightBg dark:bg-ue-darkBg rounded-full overflow-hidden">
+                <div class="h-full bg-ue-red rounded-full" style="width:${Math.round((s.pts / maxPts) * 100)}%"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="lg:col-span-5 bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5 space-y-4">
+        <h3 class="font-bold text-sm">KPI Point Weight Configurator</h3>
+        <form onsubmit="updateKpiWeights(event)" class="grid grid-cols-2 gap-3 text-xs">
+          <div><label class="text-ue-muted block mb-1">Workshop Reg</label><input id="wReg" type="number" value="${db.kpiWeights.workshopReg}" class="w-full font-mono bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-2.5 py-1.5" /></div>
+          <div><label class="text-ue-muted block mb-1">Verified Tech Lead</label><input id="wLead" type="number" value="${db.kpiWeights.techLead}" class="w-full font-mono bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-2.5 py-1.5" /></div>
+          <div><label class="text-ue-muted block mb-1">Brand Post</label><input id="wPost" type="number" value="${db.kpiWeights.brandPost}" class="w-full font-mono bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-2.5 py-1.5" /></div>
+          <div><label class="text-ue-muted block mb-1">Cert Min Threshold</label><input id="wCert" type="number" value="${db.kpiWeights.certThreshold}" class="w-full font-mono bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-2.5 py-1.5" /></div>
+          <button type="submit" class="col-span-2 bg-ue-ink dark:bg-ue-red text-white font-semibold py-2 rounded-lg hover:bg-ue-red transition">Save Weights & Recalculate Leaderboard</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Recruitment Manager -->
+    <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5">
+      <h3 class="font-bold text-sm mb-3">Recruitment Queue (Approve & Auto-Onboard)</h3>
+      <div class="space-y-3">
+        ${db.applications.map(a => `
+          <div class="p-3.5 rounded-lg bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-bold text-sm">${escapeHTML(a.name)}</span>
+                <span class="px-2 py-0.5 rounded bg-ue-red/10 text-ue-red font-mono text-[10px] font-semibold">${escapeHTML(a.role)}</span>
+                <span class="text-ue-muted">${escapeHTML(a.campus)} · ${escapeHTML(a.squad)}</span>
+              </div>
+              <p class="text-ue-muted dark:text-slate-400 mt-1">${escapeHTML(a.exp)}</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              ${a.status === 'Pending'
+                ? `<button onclick="approveApplication('${a.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded">Approve & Onboard</button>
+                   <button onclick="rejectApplication('${a.id}')" class="border border-ue-lightBorder dark:border-ue-darkBorder px-3 py-1.5 rounded hover:border-ue-red">Reject</button>`
+                : `<span class="font-mono text-[11px] px-2.5 py-1 rounded ${a.status === 'Approved' ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-200 dark:bg-slate-800 text-ue-muted'}">${a.status}</span>`}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- Certificate Registry + Workshop Creator -->
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5 space-y-4">
+        <h3 class="font-bold text-sm">Live Certificate Issuer & Revoker</h3>
+        <form onsubmit="issueCertificate(event)" class="grid sm:grid-cols-2 gap-2.5 text-xs">
+          <input id="cHolder" type="text" required placeholder="Recipient Name" class="bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-3 py-2" />
+          <input id="cCampus" type="text" required placeholder="University" class="bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-3 py-2" />
+          <input id="cRole" type="text" required placeholder="Credential Title (e.g., Program Secretary)" class="sm:col-span-2 bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-3 py-2" />
+          <button type="submit" class="sm:col-span-2 bg-ue-red hover:bg-ue-redDark text-white font-semibold py-2 rounded-lg">Issue Verifiable Certificate ID</button>
+        </form>
+        <div class="space-y-2 max-h-48 overflow-y-auto text-xs">
+          ${db.certificates.map(c => `
+            <div class="flex items-center justify-between p-2.5 rounded bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder">
+              <div><span class="font-mono font-bold">${escapeHTML(c.id)}</span> · ${escapeHTML(c.holder)} <span class="text-ue-muted">(${escapeHTML(c.status)})</span></div>
+              <button onclick="toggleCertStatus('${c.id}')" class="text-[11px] font-semibold text-ue-red hover:underline">${c.status === 'Valid' ? 'Revoke' : 'Restore'}</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5 space-y-4">
+        <h3 class="font-bold text-sm">Publish New Workshop + Backup State</h3>
+        <form onsubmit="createWorkshop(event)" class="grid sm:grid-cols-2 gap-2.5 text-xs">
+          <input id="nwTitle" type="text" required placeholder="Workshop Title" class="sm:col-span-2 bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-3 py-2" />
+          <input id="nwDate" type="text" required placeholder="Date (e.g., Jan 10, 2027)" class="bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-3 py-2" />
+          <input id="nwFee" type="text" required placeholder="Fee (e.g., BDT 400)" class="bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-3 py-2" />
+          <button type="submit" class="sm:col-span-2 bg-ue-ink dark:bg-white text-white dark:text-ue-ink font-semibold py-2 rounded-lg hover:bg-ue-red dark:hover:bg-ue-red dark:hover:text-white transition">Publish Live to Portal</button>
+        </form>
+        <div class="pt-3 border-t border-ue-lightBorder dark:border-ue-darkBorder flex flex-wrap gap-2">
+          <button onclick="exportStateJSON()" class="text-xs font-mono px-3 py-2 rounded border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red">↓ Export Full DB (.json)</button>
+          <button onclick="exportRosterCSV()" class="text-xs font-mono px-3 py-2 rounded border border-ue-lightBorder dark:border-ue-darkBorder hover:border-ue-red">↓ Export Roster (.csv)</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// --- TIER 2: PROGRAM SECRETARY DASHBOARD ---
+function renderSecretaryDashboard(el) {
+  const pendingSubs = db.submissions.filter(s => s.status === 'Pending');
+  el.innerHTML = `
+    <div class="bg-ue-ink text-white rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <div class="text-[10px] font-mono uppercase tracking-widest text-ue-red font-bold">TIER 2 · EXECUTIVE COORDINATION HUB</div>
+        <h3 class="text-lg font-extrabold mt-0.5">Program Secretary Audit & ExCom Operations</h3>
+        <p class="text-xs text-slate-300 mt-1">Oversee all 5 Core Team Leads, audit cross-squad KPI submissions, publish central broadcasts, and export weekly reports for the Program Chair.</p>
+      </div>
+      <button onclick="exportRosterCSV()" class="bg-ue-red hover:bg-ue-redDark text-white text-xs font-semibold px-4 py-2.5 rounded-lg shrink-0">↓ Export Chair Sync CSV</button>
+    </div>
+
+    <div class="grid lg:grid-cols-12 gap-6">
+      <!-- Cross-Squad KPI Audit Queue -->
+      <div class="lg:col-span-7 bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold text-sm">Cross-Squad KPI Audit Queue (${pendingSubs.length} Pending)</h3>
+          <span class="text-[11px] font-mono text-ue-muted">All 5 Squads</span>
+        </div>
+        <div class="space-y-2.5 text-xs">
+          ${db.submissions.map(s => `
+            <div class="p-3 rounded-lg bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <div class="font-semibold">${escapeHTML(s.caName)} <span class="font-mono text-[10px] text-ue-red">(${escapeHTML(s.caCode)} · ${escapeHTML(s.squad)})</span></div>
+                <div class="text-ue-muted dark:text-slate-300 mt-0.5"><strong>${escapeHTML(s.type)}:</strong> ${escapeHTML(s.detail)}</div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                ${s.status === 'Pending'
+                  ? `<button onclick="reviewSubmission('${s.id}', 'Approved')" class="bg-emerald-600 text-white px-2.5 py-1 rounded font-semibold">Audit & Approve</button>
+                     <button onclick="reviewSubmission('${s.id}', 'Rejected')" class="border border-ue-lightBorder dark:border-ue-darkBorder px-2.5 py-1 rounded">Reject</button>`
+                  : `<span class="font-mono text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800">${s.status}</span>`}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Central Broadcast & Campaign Kit Publisher -->
+      <div class="lg:col-span-5 space-y-6">
+        <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5">
+          <h3 class="font-bold text-sm mb-3">Publish Central Broadcast / Campaign Kit</h3>
+          <form onsubmit="publishCampaignKit(event)" class="space-y-2.5 text-xs">
+            <input id="kitTitle" type="text" required placeholder="Circular / Campaign Kit Title" class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-3 py-2" />
+            <textarea id="kitCopy" rows="3" required placeholder="Official caption, deadline, or briefing for all 5 Core Leads & CAs..." class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded px-3 py-2"></textarea>
+            <button type="submit" class="w-full bg-ue-red hover:bg-ue-redDark text-white font-semibold py-2 rounded-lg">Broadcast to All Squads</button>
+          </form>
+        </div>
+
+        <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5">
+          <h3 class="font-bold text-sm mb-3">Club Partnership Inquiries (${db.clubPitches.length})</h3>
+          <div class="space-y-2 text-xs">
+            ${db.clubPitches.map(cp => `
+              <div class="p-2.5 rounded bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder">
+                <div class="font-semibold">${escapeHTML(cp.club)} · <span class="text-ue-red">${escapeHTML(cp.university)}</span></div>
+                <div class="text-ue-muted">${escapeHTML(cp.type)} · ${escapeHTML(cp.contact)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// --- TIER 3: CORE TEAM LEAD DASHBOARD ---
+function renderLeadDashboard(el) {
+  const mySquad = currentUser.squad || 'Squad A';
+  const squadMembers = db.roster.filter(r => r.squad === mySquad);
+
+  el.innerHTML = `
+    <div class="grid lg:grid-cols-12 gap-6">
+      <!-- Pending KPI Queue -->
+      <div class="lg:col-span-7 bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5">
+        <h3 class="font-bold text-sm mb-3">Squad KPI Approval Queue (Live Leaderboard Sync)</h3>
+        <div class="space-y-2.5 text-xs">
+          ${db.submissions.map(s => `
+            <div class="p-3 rounded-lg bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <div class="font-semibold">${escapeHTML(s.caName)} <span class="font-mono text-[10px] text-ue-red">(${escapeHTML(s.caCode)})</span></div>
+                <div class="text-ue-muted dark:text-slate-300 mt-0.5"><strong>${escapeHTML(s.type)}:</strong> ${escapeHTML(s.detail)}</div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                ${s.status === 'Pending'
+                  ? `<button onclick="reviewSubmission('${s.id}', 'Approved')" class="bg-emerald-600 text-white px-2.5 py-1 rounded font-semibold">Approve</button>
+                     <button onclick="reviewSubmission('${s.id}', 'Rejected')" class="border border-ue-lightBorder dark:border-ue-darkBorder px-2.5 py-1 rounded">Reject</button>`
+                  : `<span class="font-mono text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800">${s.status}</span>`}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Tech Lead Pipeline -->
+      <div class="lg:col-span-5 bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5">
+        <h3 class="font-bold text-sm mb-3">FYDP / Tech Lead Pipeline (Lead 3 View)</h3>
+        <div class="space-y-2.5 text-xs">
+          ${db.techPipeline.map(t => `
+            <div class="p-3 rounded-lg bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-mono text-[10px] font-bold text-ue-red">${escapeHTML(t.id)}</span>
+                <select onchange="updateLeadStage('${t.id}', this.value)" class="text-[11px] bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded px-2 py-0.5">
+                  <option ${t.stage==='New'?'selected':''}>New</option>
+                  <option ${t.stage==='Qualified'?'selected':''}>Qualified</option>
+                  <option ${t.stage==='Handoff to UE'?'selected':''}>Handoff to UE</option>
+                </select>
+              </div>
+              <div class="font-bold">${escapeHTML(t.title)}</div>
+              <div class="text-ue-muted">${escapeHTML(t.campus)} · Via ${escapeHTML(t.submittedBy)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5">
+      <h3 class="font-bold text-sm mb-3">${mySquad} Active Roster Health</h3>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+        ${squadMembers.map(m => `
+          <div class="p-3.5 rounded-lg bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder">
+            <div class="font-bold">${escapeHTML(m.name)}</div>
+            <div class="text-ue-muted text-[11px]">${escapeHTML(m.campus)}</div>
+            <div class="mt-2 flex justify-between font-mono text-[11px]">
+              <span>${escapeHTML(m.code)}</span>
+              <span class="font-bold text-ue-red">${calcPoints(m)} pts</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// --- TIER 4: GENERAL CA DASHBOARD ---
+function renderCADashboard(el) {
+  const me = db.roster.find(r => r.code === currentUser.caCode) || db.roster[0];
+  const pts = calcPoints(me);
+  const certPct = Math.min(100, Math.round((pts / db.kpiWeights.certThreshold) * 100));
+  const shareUrl = `${window.location.origin}${window.location.pathname}?ref=${me.code}`;
+  const mySubs = db.submissions.filter(s => s.caCode === me.code);
+
+  el.innerHTML = `
+    <!-- Personal Scorecards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-4">
+        <div class="text-[10px] font-mono uppercase text-ue-muted">My Verified Points</div>
+        <div class="text-2xl font-extrabold font-mono text-ue-red mt-1">${pts}</div>
+      </div>
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-4">
+        <div class="text-[10px] font-mono uppercase text-ue-muted">Workshop Regs</div>
+        <div class="text-2xl font-extrabold font-mono mt-1">${me.workshopRegs}</div>
+      </div>
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-4">
+        <div class="text-[10px] font-mono uppercase text-ue-muted">Verified Tech Leads</div>
+        <div class="text-2xl font-extrabold font-mono mt-1">${me.techLeads}</div>
+      </div>
+      <div class="bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-4">
+        <div class="text-[10px] font-mono uppercase text-ue-muted">Certificate Progress</div>
+        <div class="text-lg font-extrabold font-mono mt-1">${certPct}%</div>
+        <div class="w-full h-1.5 bg-ue-lightBg dark:bg-ue-darkBg rounded-full mt-1 overflow-hidden">
+          <div class="h-full bg-emerald-500" style="width:${certPct}%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Automated Referral Link Box -->
+    <div class="bg-ue-ink text-white rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <div class="text-[10px] font-mono uppercase tracking-widest text-ue-red font-bold">PERSONAL AUTOMATED REFERRAL ENGINE</div>
+        <div class="text-sm font-bold mt-1">Your Code: <span class="font-mono text-ue-red bg-white px-2 py-0.5 rounded ml-1">${me.code}</span></div>
+        <div class="text-xs text-slate-300 mt-1 break-all font-mono">${escapeHTML(shareUrl)}</div>
+      </div>
+      <button onclick="copyText('${shareUrl.replace(/'/g, "\\'")}', 'Referral link copied!')" class="bg-ue-red hover:bg-ue-redDark text-white text-xs font-semibold px-4 py-2.5 rounded-lg shrink-0">
+        Copy Referral Link
+      </button>
+    </div>
+
+    <div class="grid lg:grid-cols-12 gap-6">
+      <!-- Submit Proof / Tech Lead Form -->
+      <div class="lg:col-span-6 bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5">
+        <h3 class="font-bold text-sm mb-3">Submit Weekly Activity / FYDP Lead</h3>
+        <form onsubmit="submitCAProof(event)" class="space-y-3 text-xs">
+          <div>
+            <label class="block font-semibold mb-1">Activity Type</label>
+            <select id="caSubType" class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2">
+              <option value="Brand Post">Brand & Digital Awareness Post (+${db.kpiWeights.brandPost} pts)</option>
+              <option value="Tech Lead">FYDP / Hardware / Service Lead (+${db.kpiWeights.techLead} pts)</option>
+              <option value="Workshop Reg">Confirmed Workshop Referral (+${db.kpiWeights.workshopReg} pts)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">Proof Link / Client Details</label>
+            <textarea id="caSubDetail" rows="3" required placeholder="Paste LinkedIn/Facebook post URL, or describe the FYDP team & contact info..." class="w-full bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder rounded-lg px-3 py-2"></textarea>
+          </div>
+          <button type="submit" class="w-full bg-ue-red hover:bg-ue-redDark text-white font-semibold py-2.5 rounded-lg">Submit to Core Lead & Secretary</button>
+        </form>
+
+        <div class="mt-5 pt-4 border-t border-ue-lightBorder dark:border-ue-darkBorder">
+          <div class="text-xs font-bold mb-2">My Submission History (${mySubs.length})</div>
+          <div class="space-y-2 text-xs max-h-44 overflow-y-auto">
+            ${mySubs.map(s => `
+              <div class="p-2.5 rounded bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder flex justify-between gap-2">
+                <div><strong>${escapeHTML(s.type)}:</strong> ${escapeHTML(s.detail)}</div>
+                <span class="font-mono text-[10px] shrink-0 ${s.status==='Approved'?'text-emerald-600':'text-amber-600'}">${s.status}</span>
+              </div>
+            `).join('') || '<div class="text-ue-muted">No submissions yet.</div>'}
+          </div>
+        </div>
+      </div>
+
+      <!-- Ready-to-Deploy Campaign Kits -->
+      <div class="lg:col-span-6 bg-white dark:bg-ue-darkCard border border-ue-lightBorder dark:border-ue-darkBorder rounded-xl p-5">
+        <h3 class="font-bold text-sm mb-3">Ready-to-Deploy Campaign Kits (Lead 4 & Secretary)</h3>
+        <div class="space-y-3 text-xs">
+          ${db.campaignKits.map(k => `
+            <div class="p-3.5 rounded-lg bg-ue-lightBg dark:bg-ue-darkBg border border-ue-lightBorder dark:border-ue-darkBorder space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold">${escapeHTML(k.title)}</span>
+                <span class="font-mono text-[10px] text-ue-muted">${escapeHTML(k.date)}</span>
+              </div>
+              <p class="text-ue-muted dark:text-slate-300 leading-relaxed">${escapeHTML(k.copy)}</p>
+              <button onclick="copyKitById('${k.id}')" class="text-[11px] font-semibold text-ue-red hover:underline">
+                Copy Caption + My Referral Link ↗
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// 6. DASHBOARD MUTATION ACTIONS
+// ============================================================
+function reviewSubmission(subId, decision) {
+  const s = db.submissions.find(x => x.id === subId);
+  if (!s || s.status !== 'Pending') return;
+  s.status = decision;
+  if (decision === 'Approved') {
+    const ca = db.roster.find(r => r.code.toUpperCase() === s.caCode.toUpperCase());
+    if (ca) {
+      if (s.type === 'Workshop Reg') ca.workshopRegs += 1;
+      else if (s.type === 'Tech Lead') ca.techLeads += 1;
+      else ca.brandPosts += 1;
+    }
+  }
+  saveDB();
+  renderDashboard();
+  showToast(`Submission ${decision.toLowerCase()} — Leaderboard updated in real time.`);
+}
+
+function submitCAProof(e) {
+  e.preventDefault();
+  const me = db.roster.find(r => r.code === currentUser.caCode) || db.roster[0];
+  const type = document.getElementById('caSubType').value;
+  const detail = document.getElementById('caSubDetail').value.trim();
+
+  db.submissions.unshift({
+    id: 'sub-' + Date.now(),
+    caCode: me.code,
+    caName: me.name,
+    squad: me.squad,
+    type,
+    detail,
+    date: new Date().toISOString().slice(0, 10),
+    status: 'Pending'
+  });
+
+  if (type === 'Tech Lead') {
+    db.techPipeline.unshift({
+      id: 'UE-LEAD-2026-' + Math.floor(200 + Math.random() * 799),
+      title: detail.slice(0, 52),
+      campus: me.campus,
+      submittedBy: `${me.name} (${me.code})`,
+      stage: 'New',
+      value: 'Student Inquiry'
+    });
+  }
+
+  saveDB();
+  renderDashboard();
+  showToast('Activity logged! Sent to your Core Squad Lead & Secretary for verification.');
+}
+
+function updateLeadStage(id, stage) {
+  const item = db.techPipeline.find(t => t.id === id);
+  if (item) item.stage = stage;
+  saveDB();
+  showToast(`Ticket ${id} moved to "${stage}".`);
+}
+
+function publishCampaignKit(e) {
+  e.preventDefault();
+  db.campaignKits.unshift({
+    id: 'kit-' + Date.now(),
+    title: document.getElementById('kitTitle').value.trim(),
+    author: currentUser.role === 'secretary' ? 'Tier 2 · Program Secretary' : 'ExCom',
+    date: new Date().toISOString().slice(0, 10),
+    copy: document.getElementById('kitCopy').value.trim()
+  });
+  saveDB();
+  renderDashboard();
+  showToast('Campaign kit broadcasted to all Squads!');
+}
+
+function approveApplication(appId) {
+  const app = db.applications.find(a => a.id === appId);
+  if (!app) return;
+  app.status = 'Approved';
+  if (app.role === 'Program Secretary') {
+    db.secretaryName = `${app.name} (${app.campus})`;
+  } else {
+    const squadLetter = app.squad.split(' ')[1] || 'A';
+    const newCode = `UE-${squadLetter}${Math.floor(300 + Math.random() * 699)}`;
+    db.roster.push({
+      id: 'ca-' + Date.now(),
+      name: app.name,
+      campus: app.campus,
+      squad: app.squad,
+      code: newCode,
+      workshopRegs: 0,
+      techLeads: 0,
+      brandPosts: 1,
+      clubEvents: 0,
+      status: 'Active'
+    });
+  }
+  saveDB();
+  renderDashboard();
+  showToast(`${app.name} approved & onboarded into the 4-Tier system!`);
+}
+
+function rejectApplication(appId) {
+  const app = db.applications.find(a => a.id === appId);
+  if (app) app.status = 'Rejected';
+  saveDB();
+  renderDashboard();
+}
+
+function updateKpiWeights(e) {
+  e.preventDefault();
+  db.kpiWeights.workshopReg = parseInt(document.getElementById('wReg').value, 10) || 15;
+  db.kpiWeights.techLead = parseInt(document.getElementById('wLead').value, 10) || 40;
+  db.kpiWeights.brandPost = parseInt(document.getElementById('wPost').value, 10) || 5;
+  db.kpiWeights.certThreshold = parseInt(document.getElementById('wCert').value, 10) || 120;
+  saveDB();
+  renderDashboard();
+  showToast('KPI weights updated across the entire portal.');
+}
+
+function issueCertificate(e) {
+  e.preventDefault();
+  const id = `UE-CA-2026-${String(db.certificates.length + 1).padStart(3, '0')}`;
+  db.certificates.unshift({
+    id,
+    holder: document.getElementById('cHolder').value.trim(),
+    campus: document.getElementById('cCampus').value.trim(),
+    role: document.getElementById('cRole').value.trim(),
+    issued: new Date().toISOString().slice(0, 10),
+    status: 'Valid'
+  });
+  saveDB();
+  renderDashboard();
+  showToast(`Issued certificate ${id} — immediately verifiable in Section 06!`);
+}
+
+function toggleCertStatus(id) {
+  const c = db.certificates.find(x => x.id === id);
+  if (!c) return;
+  c.status = c.status === 'Valid' ? 'Revoked' : 'Valid';
+  saveDB();
+  renderDashboard();
+}
+
+function createWorkshop(e) {
+  e.preventDefault();
+  db.workshops.unshift({
+    id: 'ws-' + Date.now(),
+    title: document.getElementById('nwTitle').value.trim(),
+    date: document.getElementById('nwDate').value.trim(),
+    mode: 'Ulterior Engineering Official',
+    fee: document.getElementById('nwFee').value.trim(),
+    seats: 60,
+    regs: 0,
+    tag: 'New Launch'
+  });
+  saveDB();
+  renderDashboard();
+  showToast('New workshop published live to Section 05!');
+}
+
+function exportStateJSON() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `UE_CA_Portal_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  showToast('Exported complete JSON portal backup.');
+}
+
+// ============================================================
+// 7. ASSISTANT BOT, THEME, UTILITIES
+// ============================================================
+function toggleAssistant() {
+  document.getElementById('assistantDrawer').classList.toggle('hidden');
+}
+
+function askBot(q) {
+  const box = document.getElementById('assistantMessages');
+  box.innerHTML += `<div class="text-right"><span class="inline-block bg-ue-red text-white px-3 py-2 rounded-lg text-left">${escapeHTML(q)}</span></div>`;
+  const lower = q.toLowerCase();
+  let ans = 'Our portal follows the Ulterior Engineering 4-Tier Governance Playbook: Program Chair → Secretary → 5 Core Team Leads → General CAs across Squads A–E.';
+  if (lower.includes('4-tier') || lower.includes('hierarchy') || lower.includes('structure')) {
+    ans = '<strong>4-Tier Structure:</strong><br>1. <strong>Program Chair:</strong> Interfaces with UE Management & sets strategy.<br>2. <strong>Program Secretary:</strong> Coordinates the 5 Core Leads, audits KPIs, and runs ExCom syncs.<br>3. <strong>5 Core Team Leads:</strong> Own functional portfolios & lead Squads A–E.<br>4. <strong>General CAs:</strong> Execute campaigns on their home campuses.';
+  } else if (lower.includes('secretary')) {
+    ans = 'The <strong>Program Secretary (Tier 2)</strong> sits between the Program Chair and the 5 Core Team Leads. They supervise cross-squad KPI audits, enforce weekly submission cutoffs, publish central broadcasts, and prepare Chair sync reports.';
+  } else if (lower.includes('kpi') || lower.includes('point')) {
+    const w = db.kpiWeights;
+    ans = `Current KPI weights: <strong>+${w.workshopReg} pts</strong> per Workshop Registration, <strong>+${w.techLead} pts</strong> per Verified Tech Lead, <strong>+${w.brandPost} pts</strong> per Brand Post. Reach <strong>${w.certThreshold} pts</strong> for Certificate Eligibility!`;
+  } else if (lower.includes('referral')) {
+    ans = 'Every General CA gets a personal URL like <code>?ref=UE-A101</code> inside their dashboard. When a student registers through that link, the referral code auto-fills and enters the Core Lead & Secretary approval queue.';
+  }
+  box.innerHTML += `<div class="bg-ue-lightBg dark:bg-ue-darkBg p-3 rounded-lg border border-ue-lightBorder dark:border-ue-darkBorder">${ans}</div>`;
+  box.scrollTop = box.scrollHeight;
+}
+
+function handleBotInput(e) {
+  e.preventDefault();
+  const inp = document.getElementById('botInput');
+  if (!inp.value.trim()) return;
+  askBot(inp.value.trim());
+  inp.value = '';
+}
+
+function setTheme(mode) {
+  const html = document.documentElement;
+  if (mode === 'dark') html.classList.add('dark');
+  else html.classList.remove('dark');
+  localStorage.setItem('ue_theme', mode);
+  updateThemePills();
+}
+
+function updateThemePills() {
+  const isDark = document.documentElement.classList.contains('dark');
+  const l = document.getElementById('themeLightBtn');
+  const d = document.getElementById('themeDarkBtn');
+  if (isDark) {
+    d.className = 'px-3 py-1 rounded-full text-[11px] font-semibold bg-ue-red text-white transition';
+    l.className = 'px-3 py-1 rounded-full text-[11px] font-semibold text-slate-400 hover:text-white transition';
+  } else {
+    l.className = 'px-3 py-1 rounded-full text-[11px] font-semibold bg-ue-red text-white transition';
+    d.className = 'px-3 py-1 rounded-full text-[11px] font-semibold text-ue-muted hover:text-ue-ink transition';
+  }
+}
+
+function toggleMobileMenu() { document.getElementById('mobileMenu').classList.toggle('hidden'); }
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.add('hidden'), 4000);
+}
+
+function copyText(txt, toastMsg) {
+  navigator.clipboard?.writeText(txt).then(() => showToast(toastMsg || 'Copied!')).catch(() => showToast(txt));
+}
+
+function copyKitById(kitId) {
+  const k = db.campaignKits.find(x => x.id === kitId);
+  if (!k) return;
+  const me = (currentUser && db.roster.find(r => r.code === currentUser.caCode)) || db.roster[0];
+  const shareUrl = `${window.location.origin}${window.location.pathname}?ref=${me.code}`;
+  copyText(`${k.copy}\n\nRegister here: ${shareUrl}`, 'Campaign kit + your referral link copied!');
+}
+
+function escapeHTML(str) {
+  return String(str ?? '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
+
+function refreshAllViews() {
+  renderCoreLeads();
+  renderSquads();
+  renderLeaderboard();
+  renderWorkshops();
+}
+
+// ============================================================
+// 8. INIT
+// ============================================================
+(function init() {
+  const savedTheme = localStorage.getItem('ue_theme') || 'light';
+  setTheme(savedTheme);
+  selectNode('chair');
+  refreshAllViews();
+  checkReferralParam();
+})();
+</script>
+</body>
+</html>

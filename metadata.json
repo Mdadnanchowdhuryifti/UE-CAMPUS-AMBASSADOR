@@ -1,0 +1,6 @@
+{
+  "name": "Ulterior Engineering — Campus Ambassador Program Portal",
+  "description": "Official Campus Ambassador Program Portal of Ulterior Engineering featuring 4-Tier ExCom Governance, Campus Squads A–E, Live KPI Leaderboard, Referral-Tracked Workshops, Verifiable Credentials, and Role-Based Dashboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
