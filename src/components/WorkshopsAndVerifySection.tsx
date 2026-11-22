@@ -1,24 +1,37 @@
 import { FormEvent, useState } from 'react';
-import { ArrowUpRight, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
-import { CertificateRecord, PortalDB, Workshop } from '../types';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  CheckCircle2,
+  Lock,
+  XCircle,
+} from 'lucide-react';
+import { CertificateRecord, PortalDB, PortalUser, Workshop } from '../types';
 
 interface WorkshopsAndVerifySectionProps {
   db: PortalDB;
+  currentUser: PortalUser | null;
+  onRequireSignIn: () => Promise<void>;
   onSelectWorkshop: (ws: Workshop) => void;
+  onVerifyCertificate: (id: string) => Promise<CertificateRecord | null>;
   onSubmitClubPitch: (pitch: {
     club: string;
     university: string;
     contact: string;
     type: string;
-  }) => void;
+  }) => Promise<void>;
 }
 
 export function WorkshopsAndVerifySection({
   db,
+  currentUser,
+  onRequireSignIn,
   onSelectWorkshop,
+  onVerifyCertificate,
   onSubmitClubPitch,
 }: WorkshopsAndVerifySectionProps) {
   const [certQuery, setCertQuery] = useState('');
+  const [certLoading, setCertLoading] = useState(false);
   const [checkedCert, setCheckedCert] = useState<{
     searchedId: string;
     record: CertificateRecord | null;
@@ -28,32 +41,47 @@ export function WorkshopsAndVerifySection({
   const [clubUniversity, setClubUniversity] = useState('');
   const [clubContact, setClubContact] = useState('');
   const [clubType, setClubType] = useState('Joint Technical Seminar');
+  const [submittingClub, setSubmittingClub] = useState(false);
 
-  const runCertCheck = (rawId: string) => {
+  const runCertCheck = async (rawId: string) => {
     const clean = rawId.trim().toUpperCase();
     if (!clean) return;
-    const found = db.certificates.find((c) => c.id.toUpperCase() === clean) || null;
-    setCheckedCert({ searchedId: clean, record: found });
+    setCertLoading(true);
+    try {
+      const found = await onVerifyCertificate(clean);
+      setCheckedCert({ searchedId: clean, record: found });
+    } finally {
+      setCertLoading(false);
+    }
   };
 
   const handleCertSubmit = (e: FormEvent) => {
     e.preventDefault();
-    runCertCheck(certQuery);
+    void runCertCheck(certQuery);
   };
 
-  const handleClubSubmit = (e: FormEvent) => {
+  const handleClubSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!currentUser) {
+      await onRequireSignIn();
+      return;
+    }
     if (!clubName.trim() || !clubUniversity.trim() || !clubContact.trim()) return;
-    onSubmitClubPitch({
-      club: clubName.trim(),
-      university: clubUniversity.trim(),
-      contact: clubContact.trim(),
-      type: clubType,
-    });
-    setClubName('');
-    setClubUniversity('');
-    setClubContact('');
-    setClubType('Joint Technical Seminar');
+    setSubmittingClub(true);
+    try {
+      await onSubmitClubPitch({
+        club: clubName.trim(),
+        university: clubUniversity.trim(),
+        contact: clubContact.trim(),
+        type: clubType,
+      });
+      setClubName('');
+      setClubUniversity('');
+      setClubContact('');
+      setClubType('Joint Technical Seminar');
+    } finally {
+      setSubmittingClub(false);
+    }
   };
 
   return (
@@ -75,8 +103,8 @@ export function WorkshopsAndVerifySection({
             </div>
             <p className="text-sm text-[#5A6270] dark:text-slate-400 max-w-md leading-relaxed">
               Registrations using a Campus Ambassador referral link (
-              <span className="font-mono text-[#B51B27]">?ref=CODE</span>) are routed directly to
-              the Core Lead &amp; Secretary approval queue.
+              <span className="font-mono text-[#B51B27]">?ref=CODE</span>) are saved in Cloud
+              Firestore and routed to the Core Lead &amp; Secretary approval queue.
             </p>
           </div>
 
@@ -143,14 +171,14 @@ export function WorkshopsAndVerifySection({
             {/* 06A: Credential Verifier */}
             <div className="bg-[#F4F5F7] dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6 sm:p-8">
               <div className="text-xs font-mono font-semibold text-[#B51B27]">
-                06A. Credential Registry
+                06A. Live Cloud Credential Registry
               </div>
               <h3 className="font-display text-xl font-extrabold mt-1 text-[#111318] dark:text-white">
                 LinkedIn-Verifiable Certificate Checker
               </h3>
               <p className="text-sm text-[#5A6270] dark:text-slate-400 mt-1.5 leading-relaxed">
                 Verify official Ulterior Engineering Campus Ambassador completion certificates and
-                Executive Committee credentials.
+                Executive Committee credentials directly against the live database.
               </p>
 
               <form onSubmit={handleCertSubmit} className="mt-5 flex gap-2">
@@ -165,9 +193,10 @@ export function WorkshopsAndVerifySection({
                 />
                 <button
                   type="submit"
-                  className="bg-[#111318] dark:bg-[#B51B27] text-white text-xs font-semibold px-5 py-2.5 rounded-lg hover:bg-[#B51B27] dark:hover:bg-[#92141E] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  disabled={certLoading}
+                  className="bg-[#111318] dark:bg-[#B51B27] text-white text-xs font-semibold px-5 py-2.5 rounded-lg hover:bg-[#B51B27] dark:hover:bg-[#92141E] disabled:opacity-60 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  Verify ID
+                  {certLoading ? 'Checking...' : 'Verify ID'}
                 </button>
               </form>
 
@@ -177,7 +206,7 @@ export function WorkshopsAndVerifySection({
                   type="button"
                   onClick={() => {
                     setCertQuery('UE-CA-2026-001');
-                    runCertCheck('UE-CA-2026-001');
+                    void runCertCheck('UE-CA-2026-001');
                   }}
                   className="underline hover:text-[#B51B27] cursor-pointer"
                 >
@@ -187,7 +216,7 @@ export function WorkshopsAndVerifySection({
                   type="button"
                   onClick={() => {
                     setCertQuery('UE-EXCOM-2026-001');
-                    runCertCheck('UE-EXCOM-2026-001');
+                    void runCertCheck('UE-EXCOM-2026-001');
                   }}
                   className="underline hover:text-[#B51B27] cursor-pointer"
                 >
@@ -301,10 +330,24 @@ export function WorkshopsAndVerifySection({
 
                 <button
                   type="submit"
-                  className="w-full inline-flex items-center justify-center gap-1.5 bg-[#B51B27] hover:bg-[#92141E] text-white text-xs font-semibold py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
+                  disabled={submittingClub}
+                  className="w-full inline-flex items-center justify-center gap-1.5 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white text-xs font-semibold py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
                 >
-                  <span>Submit Partnership Inquiry to Lead 5</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  {currentUser ? (
+                    <>
+                      <span>
+                        {submittingClub
+                          ? 'Submitting to Lead 5...'
+                          : 'Submit Partnership Inquiry to Lead 5'}
+                      </span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Sign in with Google to Submit Inquiry</span>
+                    </>
+                  )}
                 </button>
               </form>
             </div>

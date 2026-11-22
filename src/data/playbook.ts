@@ -264,6 +264,7 @@ export const DEFAULT_DB: PortalDB = {
     clubEvent: 30,
     certThreshold: 120,
   },
+  chairName: 'Md. Adnan Chowdhury Ifti',
   secretaryName: 'Tahmid Hasan (Acting Secretary)',
   roster: [
     {
@@ -530,6 +531,8 @@ export const DEFAULT_DB: PortalDB = {
       status: 'Valid',
     },
   ],
+  workshopRegistrations: [],
+  roleAssignments: [],
   clubPitches: [
     {
       id: 'cp1',
@@ -538,6 +541,7 @@ export const DEFAULT_DB: PortalDB = {
       contact: 'Events Wing',
       type: 'Joint Technical Seminar',
       date: '2026-11-18',
+      status: 'New',
     },
   ],
 };

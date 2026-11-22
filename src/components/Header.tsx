@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Ambassador, PortalUser } from '../types';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   detectedRefCode: string;
   referringCA: Ambassador | undefined;
   currentUser: PortalUser | null;
+  authLoading: boolean;
   onOpenAuthOrDashboard: () => void;
 }
 
@@ -13,6 +15,7 @@ export function Header({
   detectedRefCode,
   referringCA,
   currentUser,
+  authLoading,
   onOpenAuthOrDashboard,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -25,9 +28,18 @@ export function Header({
     { href: '#workshops', label: 'Workshops' },
   ];
 
-  const primaryBtnLabel = currentUser
-    ? `${currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)} Dashboard`
-    : 'Portal Sign In';
+  const getPrimaryLabel = () => {
+    if (authLoading) return 'Checking Session...';
+    if (!currentUser) return 'Portal Sign In';
+    if (!currentUser.assigned || !currentUser.role) return 'My Account';
+    if (currentUser.role === 'developer') return 'Developer Console';
+    if (currentUser.role === 'chair') return 'Chair Console';
+    if (currentUser.role === 'secretary') return 'Secretary Hub';
+    if (currentUser.role.startsWith('lead')) {
+      return `Lead ${currentUser.role.replace('lead', '')} Portal`;
+    }
+    return 'My CA Portal';
+  };
 
   return (
     <>
@@ -98,14 +110,15 @@ export function Header({
             ))}
           </nav>
 
-          {/* Zone 3: 1 Primary CTA + Mobile Toggle */}
+          {/* Zone 3: 1 Primary Action + Mobile Drawer Toggle */}
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={onOpenAuthOrDashboard}
-              className="bg-[#B51B27] hover:bg-[#92141E] text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-2"
+              disabled={authLoading}
+              className="bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-2"
             >
-              {primaryBtnLabel}
+              {getPrimaryLabel()}
             </button>
             <button
               type="button"
@@ -139,6 +152,9 @@ export function Header({
             >
               Verify Credentials &amp; Clubs
             </a>
+            <div className="pt-2 pb-1">
+              <PWAInstallButton variant="compact" />
+            </div>
             <a
               href="https://ulteriorengineering.com/"
               target="_blank"

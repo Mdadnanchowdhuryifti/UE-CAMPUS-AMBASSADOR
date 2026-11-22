@@ -10,7 +10,18 @@ export type GovernanceNodeKey =
   | 'lead5'
   | 'general';
 
-export type UserRole = 'chair' | 'secretary' | 'lead' | 'ca';
+export type UserRole =
+  | 'developer'
+  | 'chair'
+  | 'secretary'
+  | 'lead1'
+  | 'lead2'
+  | 'lead3'
+  | 'lead4'
+  | 'lead5'
+  | 'ca';
+
+export type LeadRole = 'lead1' | 'lead2' | 'lead3' | 'lead4' | 'lead5';
 
 export interface GovernanceNode {
   tier: string;
@@ -24,7 +35,7 @@ export interface GovernanceNode {
 }
 
 export interface CoreLeadMeta {
-  id: GovernanceNodeKey;
+  id: LeadRole;
   num: string;
   title: string;
   squad: SquadName;
@@ -47,6 +58,17 @@ export interface KpiWeights {
   certThreshold: number;
 }
 
+export interface RoleAssignment {
+  id: string; // normalized email key
+  email: string;
+  displayName: string;
+  role: UserRole;
+  squad: 'ALL' | SquadName;
+  caCode: string;
+  campus: string;
+  assignedBy: string;
+}
+
 export interface Ambassador {
   id: string;
   name: string;
@@ -57,7 +79,7 @@ export interface Ambassador {
   techLeads: number;
   brandPosts: number;
   clubEvents: number;
-  status: string;
+  status: 'Active' | 'Inactive';
 }
 
 export interface Workshop {
@@ -71,6 +93,17 @@ export interface Workshop {
   tag: string;
 }
 
+export interface WorkshopRegistration {
+  id: string;
+  workshopId: string;
+  workshopTitle: string;
+  participantName: string;
+  university: string;
+  email: string;
+  refCode: string;
+  registrarUid: string;
+}
+
 export type SubmissionType = 'Workshop Reg' | 'Tech Lead' | 'Brand Post';
 export type ReviewStatus = 'Pending' | 'Approved' | 'Rejected';
 
@@ -78,6 +111,7 @@ export interface ActivitySubmission {
   id: string;
   caCode: string;
   caName: string;
+  submitterUid?: string;
   squad: SquadName;
   type: SubmissionType;
   detail: string;
@@ -92,6 +126,7 @@ export interface TechLeadTicket {
   title: string;
   campus: string;
   submittedBy: string;
+  submitterUid?: string;
   stage: TechPipelineStage;
   value: string;
 }
@@ -102,6 +137,7 @@ export interface CampaignKit {
   author: string;
   date: string;
   copy: string;
+  createdByUid?: string;
 }
 
 export interface RecruitmentApplication {
@@ -111,6 +147,7 @@ export interface RecruitmentApplication {
   campus: string;
   squad: SquadName;
   email: string;
+  applicantUid?: string;
   exp: string;
   status: ReviewStatus;
 }
@@ -124,6 +161,8 @@ export interface CertificateRecord {
   status: 'Valid' | 'Revoked';
 }
 
+export type ClubPitchStatus = 'New' | 'In Review' | 'Confirmed';
+
 export interface ClubPitch {
   id: string;
   club: string;
@@ -131,25 +170,35 @@ export interface ClubPitch {
   contact: string;
   type: string;
   date: string;
+  status: ClubPitchStatus;
+  submitterUid?: string;
 }
 
 export interface PortalDB {
   kpiWeights: KpiWeights;
+  chairName: string;
   secretaryName: string;
   roster: Ambassador[];
   workshops: Workshop[];
+  workshopRegistrations: WorkshopRegistration[];
   submissions: ActivitySubmission[];
   techPipeline: TechLeadTicket[];
   campaignKits: CampaignKit[];
   applications: RecruitmentApplication[];
   certificates: CertificateRecord[];
   clubPitches: ClubPitch[];
+  roleAssignments: RoleAssignment[];
 }
 
 export interface PortalUser {
-  role: UserRole;
-  name: string;
-  sub: string;
-  caCode?: string;
-  squad?: SquadName;
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL: string | null;
+  emailVerified: boolean;
+  assigned: boolean;
+  role: UserRole | null;
+  squad: 'ALL' | SquadName | null;
+  caCode: string;
+  campus: string;
 }

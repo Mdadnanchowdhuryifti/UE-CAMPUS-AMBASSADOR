@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="96" fill="#0D0F12"/>
+  <rect x="24" y="24" width="464" height="464" rx="76" stroke="#262B35" stroke-width="8"/>
+  <!-- U -->
+  <path d="M96 144H162V300C162 325 178 340 202 340C226 340 242 325 242 300V144H308V303C308 367 265 403 202 403C139 403 96 367 96 303V144Z" fill="#FFFFFF"/>
+  <!-- E bars with UE Crimson middle bar -->
+  <rect x="342" y="144" width="114" height="52" rx="4" fill="#FFFFFF"/>
+  <rect x="342" y="236" width="94" height="52" rx="4" fill="#B51B27"/>
+  <rect x="342" y="328" width="114" height="52" rx="4" fill="#FFFFFF"/>
+</svg>

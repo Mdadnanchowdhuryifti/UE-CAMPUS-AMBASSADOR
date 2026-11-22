@@ -1,0 +1,229 @@
+{
+  "entities": {
+    "ProgramSettings": {
+      "title": "ProgramSettings",
+      "description": "Global KPI point weights and acting secretary display metadata.",
+      "type": "object",
+      "properties": {
+        "workshopReg": { "type": "number", "description": "Points per verified workshop registration" },
+        "techLead": { "type": "number", "description": "Points per verified technical lead" },
+        "brandPost": { "type": "number", "description": "Points per verified brand post" },
+        "clubEvent": { "type": "number", "description": "Points per club event" },
+        "certThreshold": { "type": "number", "description": "Minimum points required for certificate eligibility" },
+        "secretaryName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "chairName": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Display name of the Program Chair appointed by the Platform Developer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["workshopReg", "techLead", "brandPost", "clubEvent", "certThreshold", "secretaryName", "updatedAt"]
+    },
+    "RoleAssignment": {
+      "title": "RoleAssignment",
+      "description": "Personal email-to-role RBAC assignment. Only Platform Developer can appoint/revoke Developer and Program Chair roles; Chair can assign subordinate ExCom/CA roles.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email", "minLength": 5, "maxLength": 160 },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["developer", "chair", "secretary", "lead1", "lead2", "lead3", "lead4", "lead5", "ca"] },
+        "squad": { "type": "string", "enum": ["ALL", "Squad A", "Squad B", "Squad C", "Squad D", "Squad E"] },
+        "caCode": { "type": "string", "maxLength": 32, "pattern": "^[A-Z0-9\\-]*$" },
+        "campus": { "type": "string", "maxLength": 120 },
+        "assignedBy": { "type": "string", "minLength": 3, "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "displayName", "role", "squad", "caCode", "campus", "assignedBy", "updatedAt"]
+    },
+    "Ambassador": {
+      "title": "Ambassador",
+      "description": "Public non-PII campus ambassador roster and leaderboard scoring record.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "campus": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "squad": { "type": "string", "enum": ["Squad A", "Squad B", "Squad C", "Squad D", "Squad E"] },
+        "code": { "type": "string", "minLength": 3, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "workshopRegs": { "type": "number" },
+        "techLeads": { "type": "number" },
+        "brandPosts": { "type": "number" },
+        "clubEvents": { "type": "number" },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "campus", "squad", "code", "workshopRegs", "techLeads", "brandPosts", "clubEvents", "status", "updatedAt"]
+    },
+    "Workshop": {
+      "title": "Workshop",
+      "description": "Public technical workshop or bootcamp catalog entry.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "date": { "type": "string", "minLength": 3, "maxLength": 60 },
+        "mode": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "fee": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "seats": { "type": "number" },
+        "regs": { "type": "number" },
+        "tag": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "date", "mode", "fee", "seats", "regs", "tag", "createdAt"]
+    },
+    "WorkshopRegistration": {
+      "title": "WorkshopRegistration",
+      "description": "Verified participant workshop enrollment with optional ambassador referral code.",
+      "type": "object",
+      "properties": {
+        "workshopId": { "type": "string", "minLength": 2, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "workshopTitle": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "participantName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "university": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "minLength": 5, "maxLength": 160 },
+        "refCode": { "type": "string", "maxLength": 32, "pattern": "^[A-Z0-9\\-]*$" },
+        "registrarUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["workshopId", "workshopTitle", "participantName", "university", "email", "refCode", "registrarUid", "createdAt"]
+    },
+    "ActivitySubmission": {
+      "title": "ActivitySubmission",
+      "description": "Ambassador KPI proof submission reviewed by the assigned Squad Core Lead, Secretary, or Chair.",
+      "type": "object",
+      "properties": {
+        "caCode": { "type": "string", "minLength": 3, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "caName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "submitterUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "squad": { "type": "string", "enum": ["Squad A", "Squad B", "Squad C", "Squad D", "Squad E"] },
+        "type": { "type": "string", "enum": ["Workshop Reg", "Tech Lead", "Brand Post"] },
+        "detail": { "type": "string", "minLength": 5, "maxLength": 1000 },
+        "date": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["caCode", "caName", "submitterUid", "squad", "type", "detail", "date", "status", "createdAt", "updatedAt"]
+    },
+    "TechLeadTicket": {
+      "title": "TechLeadTicket",
+      "description": "FYDP or engineering hardware project lead tracked by Lead 3 (Tech Lead-Gen), Secretary, and Chair.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "campus": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "submittedBy": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "submitterUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "stage": { "type": "string", "enum": ["New", "Qualified", "Handoff to UE"] },
+        "value": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "campus", "submittedBy", "submitterUid", "stage", "value", "createdAt", "updatedAt"]
+    },
+    "CampaignKit": {
+      "title": "CampaignKit",
+      "description": "Official campaign copy and outreach templates published by Chair, Secretary, or Lead 4 (Brand & PR).",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "author": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "date": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "copy": { "type": "string", "minLength": 5, "maxLength": 2000 },
+        "createdByUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "author", "date", "copy", "createdByUid", "createdAt"]
+    },
+    "RecruitmentApplication": {
+      "title": "RecruitmentApplication",
+      "description": "Private candidate recruitment application reviewed by Program Chair and Secretary.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "role": { "type": "string", "minLength": 3, "maxLength": 100 },
+        "campus": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "squad": { "type": "string", "enum": ["Squad A", "Squad B", "Squad C", "Squad D", "Squad E"] },
+        "email": { "type": "string", "format": "email", "minLength": 5, "maxLength": 160 },
+        "applicantUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "exp": { "type": "string", "minLength": 5, "maxLength": 1500 },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "role", "campus", "squad", "email", "applicantUid", "exp", "status", "createdAt", "updatedAt"]
+    },
+    "CertificateRecord": {
+      "title": "CertificateRecord",
+      "description": "Official LinkedIn-verifiable credential issued and managed by Program Chair.",
+      "type": "object",
+      "properties": {
+        "holder": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "role": { "type": "string", "minLength": 3, "maxLength": 140 },
+        "campus": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "issued": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "status": { "type": "string", "enum": ["Valid", "Revoked"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["holder", "role", "campus", "issued", "status", "createdAt"]
+    },
+    "ClubPitch": {
+      "title": "ClubPitch",
+      "description": "University club partnership or seminar proposal routed to Lead 5, Secretary, and Chair.",
+      "type": "object",
+      "properties": {
+        "club": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "university": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "contact": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "type": { "type": "string", "minLength": 3, "maxLength": 100 },
+        "date": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "status": { "type": "string", "enum": ["New", "In Review", "Confirmed"] },
+        "submitterUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["club", "university", "contact", "type", "date", "status", "submitterUid", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/ProgramSettings" },
+      "description": "Global KPI weights and program configuration (doc ID: program)."
+    },
+    "/role_assignments/{emailKey}": {
+      "schema": { "$ref": "#/entities/RoleAssignment" },
+      "description": "Personal email-based RBAC role registry controlled exclusively by Program Chair."
+    },
+    "/ambassadors/{ambassadorId}": {
+      "schema": { "$ref": "#/entities/Ambassador" },
+      "description": "Public campus ambassador roster and leaderboard metrics (zero PII)."
+    },
+    "/workshops/{workshopId}": {
+      "schema": { "$ref": "#/entities/Workshop" },
+      "description": "Public technical workshops and bootcamp catalog."
+    },
+    "/workshop_registrations/{regId}": {
+      "schema": { "$ref": "#/entities/WorkshopRegistration" },
+      "description": "Private participant workshop registrations accessible to Chair, Secretary, Lead 2, or registrant."
+    },
+    "/submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/ActivitySubmission" },
+      "description": "Ambassador KPI proof submissions scoped by squad and role."
+    },
+    "/tech_pipeline/{ticketId}": {
+      "schema": { "$ref": "#/entities/TechLeadTicket" },
+      "description": "FYDP and engineering hardware project leads scoped to Chair, Secretary, Lead 3, or submitter."
+    },
+    "/campaign_kits/{kitId}": {
+      "schema": { "$ref": "#/entities/CampaignKit" },
+      "description": "Official campaign kits readable by assigned team members and writable by Chair, Secretary, or Lead 4."
+    },
+    "/applications/{applicationId}": {
+      "schema": { "$ref": "#/entities/RecruitmentApplication" },
+      "description": "Private recruitment applications containing candidate emails, accessible to Chair, Secretary, or applicant."
+    },
+    "/certificates/{certificateId}": {
+      "schema": { "$ref": "#/entities/CertificateRecord" },
+      "description": "Verifiable certificates lookup by document ID; managed exclusively by Chair."
+    },
+    "/club_pitches/{pitchId}": {
+      "schema": { "$ref": "#/entities/ClubPitch" },
+      "description": "University club partnership proposals accessible to Chair, Secretary, Lead 5, or submitter."
+    }
+  }
+}

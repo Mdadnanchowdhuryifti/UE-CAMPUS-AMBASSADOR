@@ -1,24 +1,39 @@
-import { ArrowRight, ArrowUpRight } from 'lucide-react';
-import { PortalDB } from '../types';
+import { motion } from 'motion/react';
+import { ArrowRight, ArrowUpRight, ShieldCheck, Terminal } from 'lucide-react';
+import { PortalDB, PortalUser } from '../types';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeroSectionProps {
   db: PortalDB;
+  currentUser: PortalUser | null;
   onApply: (role: string) => void;
   onOpenDashboard: () => void;
+  onOpenDeveloperSignIn: () => void;
 }
 
-export function HeroSection({ db, onApply, onOpenDashboard }: HeroSectionProps) {
+export function HeroSection({
+  db,
+  currentUser,
+  onApply,
+  onOpenDashboard,
+  onOpenDeveloperSignIn,
+}: HeroSectionProps) {
   const totalWorkshops = db.roster.reduce((sum, r) => sum + r.workshopRegs, 0);
   const totalLeads = db.roster.reduce((sum, r) => sum + r.techLeads, 0);
 
   return (
     <section className="relative overflow-hidden swiss-grid border-b border-[#E2E5EB] dark:border-[#262B35]">
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/75 via-transparent to-[#B51B27]/[0.04] dark:from-[#0D0F12]/85 dark:via-transparent dark:to-[#B51B27]/[0.08]" />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/75 via-transparent to-[#B51B27]/[0.05] dark:from-[#0D0F12]/85 dark:via-transparent dark:to-[#B51B27]/[0.09]" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-20">
         <div className="grid lg:grid-cols-12 gap-10 items-stretch">
           {/* Left Copy */}
-          <div className="lg:col-span-7 flex flex-col justify-center space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-7 flex flex-col justify-center space-y-6"
+          >
             <div className="flex items-center gap-3 text-xs font-medium tracking-wide text-[#5A6270] dark:text-slate-400">
               <span className="w-6 h-[2px] bg-[#B51B27] shrink-0" aria-hidden="true" />
               <span>Campus Ambassador Program · People. Purpose. Possibility.</span>
@@ -34,12 +49,12 @@ export function HeroSection({ db, onApply, onOpenDashboard }: HeroSectionProps) 
               <strong className="font-semibold text-[#111318] dark:text-white">
                 Ulterior Engineering
               </strong>
-              . Structured on a disciplined{' '}
+              . Powered by personal role-verified accounts across our{' '}
               <strong className="font-semibold text-[#111318] dark:text-white">
-                4-Tier ExCom Architecture
+                4-Tier ExCom Governance
               </strong>{' '}
-              (Program Chair, Secretary, 5 Core Team Leads, and General CAs), connecting
-              engineering education, technical project execution, and industry across Bangladesh.
+              (Program Chair, Secretary, 5 Core Team Leads, and General CAs) with real-time cloud
+              sync and installable app support.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -57,21 +72,55 @@ export function HeroSection({ db, onApply, onOpenDashboard }: HeroSectionProps) 
                 onClick={onOpenDashboard}
                 className="inline-flex items-center gap-2 bg-white dark:bg-[#15181E] hover:border-[#B51B27] text-[#111318] dark:text-white border border-[#E2E5EB] dark:border-[#262B35] text-sm font-semibold px-5 py-3 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
-                <span>Open CA / ExCom Dashboard</span>
+                <span>
+                  {currentUser ? 'Open My Workspace' : 'Personal Portal Sign In'}
+                </span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              <a
-                href="#architecture"
-                className="text-sm font-medium text-[#5A6270] dark:text-slate-400 hover:text-[#B51B27] px-2 py-2 transition-colors whitespace-nowrap shrink-0"
-              >
-                Inspect 4-Tier Tree
-              </a>
+              {/* Direct App Download Icon Button */}
+              <PWAInstallButton variant="hero" />
             </div>
-          </div>
+
+            {currentUser ? (
+              <div className="inline-flex items-center gap-2 text-xs text-[#5A6270] dark:text-slate-400">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>
+                  Signed in as{' '}
+                  <strong className="text-[#111318] dark:text-white">
+                    {currentUser.email}
+                  </strong>
+                  {currentUser.assigned && currentUser.role
+                    ? ` · Verified ${
+                        currentUser.role === 'developer'
+                          ? 'TIER 0 DEVELOPER (ROOT)'
+                          : currentUser.role.toUpperCase()
+                      } access`
+                    : ' · Awaiting Developer / Chair role assignment'}
+                </span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 text-xs text-[#5A6270] dark:text-slate-400">
+                <Terminal className="w-3.5 h-3.5 text-[#B51B27] shrink-0" />
+                <span>Platform Administrator?</span>
+                <button
+                  type="button"
+                  onClick={onOpenDeveloperSignIn}
+                  className="font-mono font-semibold text-[#111318] dark:text-white hover:text-[#B51B27] underline underline-offset-4 cursor-pointer"
+                >
+                  Developer Root Sign In
+                </button>
+              </div>
+            )}
+          </motion.div>
 
           {/* Right Overview Card */}
-          <div className="lg:col-span-5 flex">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-5 flex"
+          >
             <div className="w-full glass-panel border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6 flex flex-col justify-between space-y-6">
               <div>
                 <div className="flex items-center justify-between text-xs text-[#5A6270] dark:text-slate-400 pb-3 border-b border-[#E2E5EB] dark:border-[#262B35]">
@@ -83,8 +132,8 @@ export function HeroSection({ db, onApply, onOpenDashboard }: HeroSectionProps) 
                   Where campus ambition meets real industrial engineering.
                 </h2>
                 <p className="text-sm text-[#5A6270] dark:text-slate-400 mt-2 leading-relaxed">
-                  Every ambassador operates across three measurable company pillars under
-                  coordinated ExCom supervision.
+                  Every ambassador operates across three measurable company pillars under strict
+                  role-isolated ExCom governance.
                 </p>
 
                 <div className="grid grid-cols-3 gap-4 pt-5 mt-5 border-t border-[#E2E5EB] dark:border-[#262B35]">
@@ -120,19 +169,21 @@ export function HeroSection({ db, onApply, onOpenDashboard }: HeroSectionProps) 
 
               <div className="pt-4 border-t border-[#E2E5EB] dark:border-[#262B35] space-y-2">
                 <div className="text-xs font-medium text-[#5A6270] dark:text-slate-400">
-                  4-Tier Chain of Command
+                  Root &amp; 4-Tier Access Control Hierarchy
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[#111318] dark:text-slate-200">
-                  <span>1. Program Chair</span>
+                  <span className="text-[#B51B27]">0. Developer (Root)</span>
+                  <span className="text-[#B51B27]" aria-hidden="true">→</span>
+                  <span>1. Chair (Appointed)</span>
                   <span className="text-[#B51B27]" aria-hidden="true">→</span>
                   <span>2. Secretary</span>
                   <span className="text-[#B51B27]" aria-hidden="true">→</span>
-                  <span>3. 5 Core Leads</span>
+                  <span>3. Scoped Leads</span>
                   <span className="text-[#B51B27]" aria-hidden="true">→</span>
-                  <span>4. General CAs</span>
+                  <span>4. CAs</span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-[#5A6270] dark:text-slate-400 pt-2">
-                  <span>Built in Bangladesh · Engineered for Impact</span>
+                  <span>Built in Bangladesh · Cloud-Synced Portal</span>
                   <a
                     href="https://ulteriorengineering.com/"
                     target="_blank"
@@ -144,10 +195,10 @@ export function HeroSection({ db, onApply, onOpenDashboard }: HeroSectionProps) 
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
 
-        {/* Full-Width 4-Column Live Program Telemetry Strip below the Hero Split */}
+        {/* Full-Width 4-Column Live Telemetry Strip */}
         <div className="mt-12 pt-8 border-t border-[#E2E5EB] dark:border-[#262B35] grid grid-cols-2 lg:grid-cols-4 gap-6">
           <div>
             <div className="text-3xl font-extrabold font-mono tabular-nums text-[#111318] dark:text-white">

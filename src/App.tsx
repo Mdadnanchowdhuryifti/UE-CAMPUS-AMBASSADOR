@@ -1,22 +1,62 @@
 import { useEffect, useRef, useState } from 'react';
+import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { BookOpen, Moon, Sun } from 'lucide-react';
 import {
-  calcPoints,
-  DB_KEY,
-  DEFAULT_DB,
-  loadPortalDB,
-  SQUADS_META,
-} from './data/playbook';
+  auth,
+  BOOTSTRAPPED_DEVELOPER_EMAIL,
+  db as firestore,
+  googleProvider,
+  handleFirestoreError,
+  OperationType,
+} from './lib/firebase';
 import {
+  addOrUpdateAmbassador,
+  approveApplicationAndOnboard,
+  createWorkshopDoc,
+  deleteCampaignKitDoc,
+  fetchRoleAssignmentForEmail,
+  isFullAccessRole,
+  issueCertificateDoc,
+  LEAD_TO_SQUAD,
+  publishCampaignKitDoc,
+  rejectApplicationDoc,
+  removeRoleAssignment,
+  reviewSubmissionAtomic,
+  saveProgramSettings,
+  seedInitialFirestoreData,
+  submitApplicationDoc,
+  submitCAProofDoc,
+  submitClubPitchDoc,
+  submitWorkshopRegistrationDoc,
+  syncRosterBatchToFirestore,
+  toggleCertificateStatusDoc,
+  updateClubPitchStatusDoc,
+  updateTechLeadStageDoc,
+  upsertRoleAssignment,
+  verifyCertificateById,
+} from './services/portalService';
+import { calcPoints, DEFAULT_DB, SQUADS_META } from './data/playbook';
+import {
+  ActivitySubmission,
   Ambassador,
+  CampaignKit,
+  CertificateRecord,
+  ClubPitch,
+  ClubPitchStatus,
   KpiWeights,
+  LeadRole,
   PortalDB,
   PortalUser,
+  RecruitmentApplication,
+  RoleAssignment,
   SquadName,
   SubmissionType,
+  TechLeadTicket,
   TechPipelineStage,
   UserRole,
   Workshop,
+  WorkshopRegistration,
 } from './types';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
@@ -25,17 +65,27 @@ import { ExComAndSquadsSection } from './components/ExComAndSquadsSection';
 import { LeaderboardSection } from './components/LeaderboardSection';
 import { WorkshopsAndVerifySection } from './components/WorkshopsAndVerifySection';
 import { RoleDashboard } from './components/RoleDashboard';
+import { OfflineIndicator, PWAInstallButton } from './components/PWAInstallButton';
 import {
   ApplyModal,
   AuthModal,
   PlaybookGuideDrawer,
-  ResetConfirmModal,
   SheetSyncModal,
   WorkshopModal,
 } from './components/PortalModals';
 
 export default function App() {
-  const [db, setDb] = useState<PortalDB>(() => loadPortalDB());
+  const [portalData, setPortalData] = useState<PortalDB>({
+    ...DEFAULT_DB,
+    submissions: [],
+    applications: [],
+    clubPitches: [],
+    techPipeline: [],
+    campaignKits: [],
+    workshopRegistrations: [],
+    roleAssignments: [],
+  });
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
       return localStorage.getItem('ue_theme') === 'dark' ? 'dark' : 'light';
@@ -44,12 +94,14 @@ export default function App() {
     }
   });
 
-  const [detectedRefCode, setDetectedRefCode] = useState('');
+  const [authLoading, setAuthLoading] = useState(true);
+  const [signingIn, setSigningIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<PortalUser | null>(null);
   const [dashboardOpen, setDashboardOpen] = useState(false);
 
-  // Modals & Drawers
+  const [detectedRefCode, setDetectedRefCode] = useState('');
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'standard' | 'developer'>('standard');
   const [applyModalState, setApplyModalState] = useState<{
     open: boolean;
     role: string;
@@ -57,10 +109,8 @@ export default function App() {
   }>({ open: false, role: 'General Campus Ambassador', squad: 'Squad A' });
   const [activeWorkshop, setActiveWorkshop] = useState<Workshop | null>(null);
   const [sheetSyncOpen, setSheetSyncOpen] = useState(false);
-  const [resetModalOpen, setResetModalOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
 
-  // Toast
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -71,34 +121,22 @@ export default function App() {
     }
     toastTimerRef.current = window.setTimeout(() => {
       setToastMsg(null);
-    }, 4000);
+    }, 4500);
   };
 
-  // Sync theme class on <html>
+  // Sync theme
   useEffect(() => {
     const html = document.documentElement;
-    if (theme === 'dark') {
-      html.classList.add('dark');
-    } else {
-      html.classList.remove('dark');
-    }
+    if (theme === 'dark') html.classList.add('dark');
+    else html.classList.remove('dark');
     try {
       localStorage.setItem('ue_theme', theme);
     } catch {
-      // ignore storage errors
+      // ignore
     }
   }, [theme]);
 
-  // Persist DB to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(DB_KEY, JSON.stringify(db));
-    } catch {
-      // ignore storage errors
-    }
-  }, [db]);
-
-  // Detect ?ref=CODE on initial mount
+  // Detect ?ref=CODE on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
@@ -107,78 +145,470 @@ export default function App() {
     }
   }, []);
 
-  const referringCA = detectedRefCode
-    ? db.roster.find((r) => r.code.toUpperCase() === detectedRefCode)
-    : undefined;
+  // 1. Public Firestore Listeners (Zero-PII collections: settings, ambassadors, workshops)
+  useEffect(() => {
+    const unsubSettings = onSnapshot(
+      doc(firestore, 'settings', 'program'),
+      (snap) => {
+        if (!snap.exists()) return;
+        const d = snap.data();
+        setPortalData((prev) => ({
+          ...prev,
+          kpiWeights: {
+            workshopReg: Number(d.workshopReg ?? 15),
+            techLead: Number(d.techLead ?? 40),
+            brandPost: Number(d.brandPost ?? 5),
+            clubEvent: Number(d.clubEvent ?? 30),
+            certThreshold: Number(d.certThreshold ?? 120),
+          },
+          chairName: String(d.chairName || DEFAULT_DB.chairName),
+          secretaryName: String(d.secretaryName || DEFAULT_DB.secretaryName),
+        }));
+      },
+      (err) => {
+        console.warn('Settings snapshot notice:', err.message);
+      }
+    );
 
-  // Auth & Role Switching
-  const handleDemoLogin = (role: UserRole) => {
-    if (role === 'chair') {
-      setCurrentUser({
-        role: 'chair',
-        name: 'Md. Adnan Chowdhury Ifti',
-        sub: 'Tier 1 · Program Chair (Super Admin)',
-      });
-    } else if (role === 'secretary') {
-      setCurrentUser({
-        role: 'secretary',
-        name: db.secretaryName,
-        sub: 'Tier 2 · Program Secretary (Executive Operations & Audit)',
-      });
-    } else if (role === 'lead') {
-      setCurrentUser({
-        role: 'lead',
-        name: 'Operations & CA HR Lead',
-        sub: 'Tier 3 · Core Team Lead · Squad A (Dhaka Zone A)',
-        squad: 'Squad A',
-      });
-    } else {
-      const firstCA = db.roster[0];
-      setCurrentUser({
-        role: 'ca',
-        name: firstCA.name,
-        sub: `Tier 4 · General CA · ${firstCA.campus} (${firstCA.squad})`,
-        caCode: firstCA.code,
-        squad: firstCA.squad,
-      });
-    }
-    setAuthModalOpen(false);
-    setDashboardOpen(true);
-  };
+    const unsubAmbassadors = onSnapshot(
+      collection(firestore, 'ambassadors'),
+      (snap) => {
+        if (snap.empty) return;
+        const list: Ambassador[] = snap.docs.map((d) => {
+          const v = d.data();
+          return {
+            id: d.id,
+            name: String(v.name || ''),
+            campus: String(v.campus || ''),
+            squad: (v.squad || 'Squad A') as SquadName,
+            code: String(v.code || ''),
+            workshopRegs: Number(v.workshopRegs || 0),
+            techLeads: Number(v.techLeads || 0),
+            brandPosts: Number(v.brandPosts || 0),
+            clubEvents: Number(v.clubEvents || 0),
+            status: v.status === 'Inactive' ? 'Inactive' : 'Active',
+          };
+        });
+        setPortalData((prev) => ({ ...prev, roster: list }));
+      },
+      (err) => {
+        handleFirestoreError(err, OperationType.LIST, 'ambassadors');
+      }
+    );
 
-  const handleCodeLogin = (rawCode: string) => {
-    const clean = rawCode.trim().toUpperCase();
-    const ca = db.roster.find((r) => r.code.toUpperCase() === clean);
-    if (!ca) {
-      showToast('Referral code not found. Try UE-A101 or select a role preview.');
+    const unsubWorkshops = onSnapshot(
+      collection(firestore, 'workshops'),
+      (snap) => {
+        if (snap.empty) return;
+        const list: Workshop[] = snap.docs.map((d) => {
+          const v = d.data();
+          return {
+            id: d.id,
+            title: String(v.title || ''),
+            date: String(v.date || ''),
+            mode: String(v.mode || ''),
+            fee: String(v.fee || ''),
+            seats: Number(v.seats || 60),
+            regs: Number(v.regs || 0),
+            tag: String(v.tag || ''),
+          };
+        });
+        setPortalData((prev) => ({ ...prev, workshops: list }));
+      },
+      (err) => {
+        handleFirestoreError(err, OperationType.LIST, 'workshops');
+      }
+    );
+
+    return () => {
+      unsubSettings();
+      unsubAmbassadors();
+      unsubWorkshops();
+    };
+  }, []);
+
+  // 2. Firebase Auth State Listener + Role Resolution
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (!fbUser || !fbUser.email) {
+        setCurrentUser(null);
+        setDashboardOpen(false);
+        setAuthLoading(false);
+        return;
+      }
+
+      const emailLower = fbUser.email.toLowerCase();
+      const isBootstrappedDeveloper =
+        fbUser.emailVerified && emailLower === BOOTSTRAPPED_DEVELOPER_EMAIL;
+
+      try {
+        let assignment = await fetchRoleAssignmentForEmail(emailLower);
+
+        // If bootstrapped Developer signs in for the first time on an empty DB, seed initial cloud data cleanly
+        if (isBootstrappedDeveloper) {
+          const seeded = await seedInitialFirestoreData();
+          if (seeded) {
+            showToast('Cloud Firestore initialized by Platform Developer.');
+            assignment = await fetchRoleAssignmentForEmail(emailLower);
+          }
+        }
+
+        if (isBootstrappedDeveloper) {
+          setCurrentUser({
+            uid: fbUser.uid,
+            email: fbUser.email,
+            displayName: assignment?.displayName || fbUser.displayName || 'Platform Developer',
+            photoURL: fbUser.photoURL,
+            emailVerified: fbUser.emailVerified,
+            assigned: true,
+            role: 'developer',
+            squad: 'ALL',
+            caCode: assignment?.caCode || 'UE-DEV-00',
+            campus: assignment?.campus || 'Ulterior Engineering HQ',
+          });
+        } else if (assignment) {
+          setCurrentUser({
+            uid: fbUser.uid,
+            email: fbUser.email,
+            displayName: assignment.displayName || fbUser.displayName || fbUser.email,
+            photoURL: fbUser.photoURL,
+            emailVerified: fbUser.emailVerified,
+            assigned: true,
+            role: assignment.role,
+            squad: assignment.squad,
+            caCode: assignment.caCode || '',
+            campus: assignment.campus || '',
+          });
+        } else {
+          setCurrentUser({
+            uid: fbUser.uid,
+            email: fbUser.email,
+            displayName: fbUser.displayName || fbUser.email,
+            photoURL: fbUser.photoURL,
+            emailVerified: fbUser.emailVerified,
+            assigned: false,
+            role: null,
+            squad: null,
+            caCode: '',
+            campus: '',
+          });
+        }
+      } catch (err) {
+        console.error('Role resolution error:', err);
+        setCurrentUser({
+          uid: fbUser.uid,
+          email: fbUser.email,
+          displayName: fbUser.displayName || fbUser.email,
+          photoURL: fbUser.photoURL,
+          emailVerified: fbUser.emailVerified,
+          assigned: isBootstrappedDeveloper,
+          role: isBootstrappedDeveloper ? 'developer' : null,
+          squad: isBootstrappedDeveloper ? 'ALL' : null,
+          caCode: isBootstrappedDeveloper ? 'UE-DEV-00' : '',
+          campus: '',
+        });
+      } finally {
+        setAuthLoading(false);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  // 3. Role-Scoped Protected Firestore Listeners (Strictly obeys Firestore RBAC rules!)
+  useEffect(() => {
+    if (!currentUser || !currentUser.emailVerified) {
+      setPortalData((prev) => ({
+        ...prev,
+        submissions: [],
+        applications: [],
+        clubPitches: [],
+        techPipeline: [],
+        campaignKits: [],
+        workshopRegistrations: [],
+        roleAssignments: [],
+      }));
       return;
     }
-    setCurrentUser({
-      role: 'ca',
-      name: ca.name,
-      sub: `Tier 4 · General CA · ${ca.campus} (${ca.squad})`,
-      caCode: ca.code,
-      squad: ca.squad,
-    });
-    setAuthModalOpen(false);
-    setDashboardOpen(true);
+
+    const unsubs: (() => void)[] = [];
+    const role = currentUser.role;
+    const hasFullAccess = isFullAccessRole(role);
+
+    // A. Role Assignments (Developer & Appointed Chair ONLY)
+    if (hasFullAccess) {
+      unsubs.push(
+        onSnapshot(
+          collection(firestore, 'role_assignments'),
+          (snap) => {
+            const list: RoleAssignment[] = snap.docs.map((d) => {
+              const v = d.data();
+              return {
+                id: d.id,
+                email: String(v.email || ''),
+                displayName: String(v.displayName || ''),
+                role: v.role as UserRole,
+                squad: (v.squad || 'Squad A') as 'ALL' | SquadName,
+                caCode: String(v.caCode || ''),
+                campus: String(v.campus || ''),
+                assignedBy: String(v.assignedBy || ''),
+              };
+            });
+            setPortalData((prev) => ({ ...prev, roleAssignments: list }));
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'role_assignments')
+        )
+      );
+    }
+
+    // B. Certificates List (Developer, Chair & Secretary)
+    if (hasFullAccess || role === 'secretary') {
+      unsubs.push(
+        onSnapshot(
+          collection(firestore, 'certificates'),
+          (snap) => {
+            const list: CertificateRecord[] = snap.docs.map((d) => {
+              const v = d.data();
+              return {
+                id: d.id,
+                holder: String(v.holder || ''),
+                role: String(v.role || ''),
+                campus: String(v.campus || ''),
+                issued: String(v.issued || ''),
+                status: v.status === 'Revoked' ? 'Revoked' : 'Valid',
+              };
+            });
+            setPortalData((prev) => ({ ...prev, certificates: list }));
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'certificates')
+        )
+      );
+    }
+
+    // C. Recruitment Applications (Developer, Chair & Secretary see all; others see only their own)
+    const appsQuery =
+      hasFullAccess || role === 'secretary'
+        ? collection(firestore, 'applications')
+        : query(
+            collection(firestore, 'applications'),
+            where('applicantUid', '==', currentUser.uid)
+          );
+    unsubs.push(
+      onSnapshot(
+        appsQuery,
+        (snap) => {
+          const list: RecruitmentApplication[] = snap.docs.map((d) => {
+            const v = d.data();
+            return {
+              id: d.id,
+              name: String(v.name || ''),
+              role: String(v.role || ''),
+              campus: String(v.campus || ''),
+              squad: (v.squad || 'Squad A') as SquadName,
+              email: String(v.email || ''),
+              applicantUid: String(v.applicantUid || ''),
+              exp: String(v.exp || ''),
+              status: (v.status || 'Pending') as 'Pending' | 'Approved' | 'Rejected',
+            };
+          });
+          setPortalData((prev) => ({ ...prev, applications: list }));
+        },
+        (err) => handleFirestoreError(err, OperationType.LIST, 'applications')
+      )
+    );
+
+    // D. Submissions (Developer/Chair/Secretary see all; Lead 1-5 see strictly their own Squad; CA sees own)
+    if (currentUser.assigned && role) {
+      const subsQuery =
+        hasFullAccess || role === 'secretary'
+          ? collection(firestore, 'submissions')
+          : role.startsWith('lead')
+          ? query(
+              collection(firestore, 'submissions'),
+              where('squad', '==', LEAD_TO_SQUAD[role as LeadRole])
+            )
+          : query(
+              collection(firestore, 'submissions'),
+              where('submitterUid', '==', currentUser.uid)
+            );
+      unsubs.push(
+        onSnapshot(
+          subsQuery,
+          (snap) => {
+            const list: ActivitySubmission[] = snap.docs.map((d) => {
+              const v = d.data();
+              return {
+                id: d.id,
+                caCode: String(v.caCode || ''),
+                caName: String(v.caName || ''),
+                submitterUid: String(v.submitterUid || ''),
+                squad: (v.squad || 'Squad A') as SquadName,
+                type: (v.type || 'Brand Post') as SubmissionType,
+                detail: String(v.detail || ''),
+                date: String(v.date || ''),
+                status: (v.status || 'Pending') as 'Pending' | 'Approved' | 'Rejected',
+              };
+            });
+            setPortalData((prev) => ({ ...prev, submissions: list }));
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'submissions')
+        )
+      );
+
+      // E. Campaign Kits (All assigned members)
+      unsubs.push(
+        onSnapshot(
+          collection(firestore, 'campaign_kits'),
+          (snap) => {
+            const list: CampaignKit[] = snap.docs.map((d) => {
+              const v = d.data();
+              return {
+                id: d.id,
+                title: String(v.title || ''),
+                author: String(v.author || ''),
+                date: String(v.date || ''),
+                copy: String(v.copy || ''),
+                createdByUid: String(v.createdByUid || ''),
+              };
+            });
+            setPortalData((prev) => ({ ...prev, campaignKits: list }));
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'campaign_kits')
+        )
+      );
+    }
+
+    // F. Tech Pipeline (Developer, Chair, Secretary, Lead 3)
+    if (hasFullAccess || role === 'secretary' || role === 'lead3') {
+      unsubs.push(
+        onSnapshot(
+          collection(firestore, 'tech_pipeline'),
+          (snap) => {
+            const list: TechLeadTicket[] = snap.docs.map((d) => {
+              const v = d.data();
+              return {
+                id: d.id,
+                title: String(v.title || ''),
+                campus: String(v.campus || ''),
+                submittedBy: String(v.submittedBy || ''),
+                submitterUid: String(v.submitterUid || ''),
+                stage: (v.stage || 'New') as TechPipelineStage,
+                value: String(v.value || ''),
+              };
+            });
+            setPortalData((prev) => ({ ...prev, techPipeline: list }));
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'tech_pipeline')
+        )
+      );
+    }
+
+    // G. Club Pitches (Developer, Chair, Secretary, Lead 5)
+    if (hasFullAccess || role === 'secretary' || role === 'lead5') {
+      unsubs.push(
+        onSnapshot(
+          collection(firestore, 'club_pitches'),
+          (snap) => {
+            const list: ClubPitch[] = snap.docs.map((d) => {
+              const v = d.data();
+              return {
+                id: d.id,
+                club: String(v.club || ''),
+                university: String(v.university || ''),
+                contact: String(v.contact || ''),
+                type: String(v.type || ''),
+                date: String(v.date || ''),
+                status: (v.status || 'New') as ClubPitchStatus,
+                submitterUid: String(v.submitterUid || ''),
+              };
+            });
+            setPortalData((prev) => ({ ...prev, clubPitches: list }));
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'club_pitches')
+        )
+      );
+    }
+
+    // H. Workshop Registrations (Developer, Chair, Secretary, Lead 2)
+    if (hasFullAccess || role === 'secretary' || role === 'lead2') {
+      unsubs.push(
+        onSnapshot(
+          collection(firestore, 'workshop_registrations'),
+          (snap) => {
+            const list: WorkshopRegistration[] = snap.docs.map((d) => {
+              const v = d.data();
+              return {
+                id: d.id,
+                workshopId: String(v.workshopId || ''),
+                workshopTitle: String(v.workshopTitle || ''),
+                participantName: String(v.participantName || ''),
+                university: String(v.university || ''),
+                email: String(v.email || ''),
+                refCode: String(v.refCode || ''),
+                registrarUid: String(v.registrarUid || ''),
+              };
+            });
+            setPortalData((prev) => ({ ...prev, workshopRegistrations: list }));
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'workshop_registrations')
+        )
+      );
+    }
+
+    return () => {
+      unsubs.forEach((u) => u());
+    };
+  }, [currentUser]);
+
+  const referringCA = detectedRefCode
+    ? portalData.roster.find((r) => r.code.toUpperCase() === detectedRefCode)
+    : undefined;
+
+  // Auth Actions
+  const handleGoogleSignIn = async (intent: 'standard' | 'developer' = 'standard') => {
+    setSigningIn(true);
+    try {
+      const cred = await signInWithPopup(auth, googleProvider);
+      setAuthModalOpen(false);
+      setDashboardOpen(true);
+      const signedEmail = cred.user.email?.toLowerCase() || '';
+      if (intent === 'developer') {
+        const assignment = signedEmail ? await fetchRoleAssignmentForEmail(signedEmail) : null;
+        const isDev =
+          (cred.user.emailVerified && signedEmail === BOOTSTRAPPED_DEVELOPER_EMAIL) ||
+          assignment?.role === 'developer';
+        showToast(
+          isDev
+            ? 'Developer Root Console unlocked (Tier 0 Full Control).'
+            : 'Signed in. Note: this account does not hold Tier 0 Developer root access.'
+        );
+      } else {
+        showToast('Signed in with Google.');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign-in cancelled';
+      showToast(`Sign in failed: ${message}`);
+    } finally {
+      setSigningIn(false);
+    }
   };
 
-  const handleOpenAuthOrDashboard = () => {
+  const handleLogout = async () => {
+    await signOut(auth);
+    setDashboardOpen(false);
+    showToast('Signed out securely.');
+  };
+
+  const handleOpenAuthOrDashboard = (mode: 'standard' | 'developer' = 'standard') => {
     if (currentUser) {
       setDashboardOpen(true);
     } else {
+      setAuthModalMode(mode);
       setAuthModalOpen(true);
     }
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setDashboardOpen(false);
-    showToast('Signed out of dashboard.');
-  };
-
-  // Public Mutations
+  // Public & Dashboard Actions wired to Cloud Firestore
   const handleApply = (role: string, squad?: SquadName) => {
     setApplyModalState({
       open: true,
@@ -187,7 +617,7 @@ export default function App() {
     });
   };
 
-  const handleSubmitApplication = (app: {
+  const handleSubmitApplication = async (app: {
     role: string;
     name: string;
     campus: string;
@@ -195,307 +625,54 @@ export default function App() {
     email: string;
     exp: string;
   }) => {
-    setDb((prev) => ({
-      ...prev,
-      applications: [
-        {
-          id: `app-${Date.now()}`,
-          ...app,
-          status: 'Pending',
-        },
-        ...prev.applications,
-      ],
-    }));
-    showToast(
-      'Application submitted. Reviewable in the Program Chair & Secretary dashboards.'
-    );
+    await submitApplicationDoc(app);
+    showToast('Application saved to Cloud Firestore for Chair & Secretary review.');
   };
 
-  const handleSubmitWorkshopReg = (reg: {
+  const handleSubmitWorkshopReg = async (reg: {
     workshopId: string;
-    name: string;
-    univ: string;
+    workshopTitle: string;
+    participantName: string;
+    university: string;
     email: string;
     refCode: string;
   }) => {
-    setDb((prev) => {
-      const targetWs = prev.workshops.find((w) => w.id === reg.workshopId);
-      const updatedWorkshops = prev.workshops.map((w) =>
-        w.id === reg.workshopId ? { ...w, regs: w.regs + 1 } : w
-      );
-
-      let updatedSubs = prev.submissions;
-      if (reg.refCode) {
-        const ca = prev.roster.find(
-          (r) => r.code.toUpperCase() === reg.refCode.toUpperCase()
-        );
-        updatedSubs = [
-          {
-            id: `sub-${Date.now()}`,
-            caCode: reg.refCode,
-            caName: ca ? ca.name : 'External Referral',
-            squad: ca ? ca.squad : 'Squad A',
-            type: 'Workshop Reg',
-            detail: `Auto-tracked registration for "${
-              targetWs ? targetWs.title : 'Workshop'
-            }" — Participant: ${reg.name} (${reg.univ})`,
-            date: new Date().toISOString().slice(0, 10),
-            status: 'Pending',
-          },
-          ...prev.submissions,
-        ];
-      }
-
-      return {
-        ...prev,
-        workshops: updatedWorkshops,
-        submissions: updatedSubs,
-      };
+    await submitWorkshopRegistrationDoc({
+      ...reg,
+      roster: portalData.roster,
     });
-
     showToast(
       reg.refCode
-        ? `Registered. Referral ${reg.refCode} logged to Core Lead & Secretary approval queue.`
-        : `Registration confirmed for ${reg.name}.`
+        ? `Registered! Referral ${reg.refCode} logged to the Squad Lead & Secretary queue.`
+        : `Workshop registration confirmed for ${reg.participantName}.`
     );
   };
 
-  const handleSubmitClubPitch = (pitch: {
+  const handleVerifyCertificate = async (
+    id: string
+  ): Promise<CertificateRecord | null> => {
+    try {
+      const cloudRecord = await verifyCertificateById(id);
+      if (cloudRecord) return cloudRecord;
+    } catch {
+      // fallback to seeded default if DB not yet seeded
+    }
+    return (
+      portalData.certificates.find((c) => c.id.toUpperCase() === id.toUpperCase()) ||
+      null
+    );
+  };
+
+  const handleSubmitClubPitch = async (pitch: {
     club: string;
     university: string;
     contact: string;
     type: string;
   }) => {
-    setDb((prev) => ({
-      ...prev,
-      clubPitches: [
-        {
-          id: `cp-${Date.now()}`,
-          ...pitch,
-          date: new Date().toISOString().slice(0, 10),
-        },
-        ...prev.clubPitches,
-      ],
-    }));
-    showToast('Partnership inquiry routed to Lead 5 (Campus Partnerships) & Secretary.');
+    await submitClubPitchDoc(pitch);
+    showToast('Club partnership inquiry saved and routed to Lead 5 & Secretary.');
   };
 
-  // Dashboard Mutations
-  const handleReviewSubmission = (
-    subId: string,
-    decision: 'Approved' | 'Rejected'
-  ) => {
-    setDb((prev) => {
-      const target = prev.submissions.find((s) => s.id === subId);
-      if (!target || target.status !== 'Pending') return prev;
-
-      const nextSubs = prev.submissions.map((s) =>
-        s.id === subId ? { ...s, status: decision } : s
-      );
-
-      const nextRoster =
-        decision === 'Approved'
-          ? prev.roster.map((ca) => {
-              if (ca.code.toUpperCase() !== target.caCode.toUpperCase()) return ca;
-              if (target.type === 'Workshop Reg') {
-                return { ...ca, workshopRegs: ca.workshopRegs + 1 };
-              }
-              if (target.type === 'Tech Lead') {
-                return { ...ca, techLeads: ca.techLeads + 1 };
-              }
-              return { ...ca, brandPosts: ca.brandPosts + 1 };
-            })
-          : prev.roster;
-
-      return {
-        ...prev,
-        submissions: nextSubs,
-        roster: nextRoster,
-      };
-    });
-    showToast(`Submission ${decision.toLowerCase()} — Leaderboard updated.`);
-  };
-
-  const handleSubmitCAProof = (type: SubmissionType, detail: string) => {
-    const me =
-      db.roster.find((r) => r.code === currentUser?.caCode) || db.roster[0];
-
-    setDb((prev) => ({
-      ...prev,
-      submissions: [
-        {
-          id: `sub-${Date.now()}`,
-          caCode: me.code,
-          caName: me.name,
-          squad: me.squad,
-          type,
-          detail,
-          date: new Date().toISOString().slice(0, 10),
-          status: 'Pending',
-        },
-        ...prev.submissions,
-      ],
-      techPipeline:
-        type === 'Tech Lead'
-          ? [
-              {
-                id: `UE-LEAD-2026-${Math.floor(200 + Math.random() * 799)}`,
-                title: detail.slice(0, 56),
-                campus: me.campus,
-                submittedBy: `${me.name} (${me.code})`,
-                stage: 'New',
-                value: 'Student Inquiry',
-              },
-              ...prev.techPipeline,
-            ]
-          : prev.techPipeline,
-    }));
-
-    showToast('Activity logged and sent to your Core Squad Lead & Secretary.');
-  };
-
-  const handleUpdateLeadStage = (id: string, stage: TechPipelineStage) => {
-    setDb((prev) => ({
-      ...prev,
-      techPipeline: prev.techPipeline.map((t) =>
-        t.id === id ? { ...t, stage } : t
-      ),
-    }));
-    showToast(`Ticket ${id} moved to "${stage}".`);
-  };
-
-  const handlePublishCampaignKit = (title: string, copy: string) => {
-    setDb((prev) => ({
-      ...prev,
-      campaignKits: [
-        {
-          id: `kit-${Date.now()}`,
-          title,
-          author:
-            currentUser?.role === 'secretary'
-              ? 'Tier 2 · Program Secretary'
-              : 'ExCom',
-          date: new Date().toISOString().slice(0, 10),
-          copy,
-        },
-        ...prev.campaignKits,
-      ],
-    }));
-    showToast('Campaign kit broadcasted to all squads.');
-  };
-
-  const handleApproveApplication = (appId: string) => {
-    const app = db.applications.find((a) => a.id === appId);
-    if (!app) return;
-
-    setDb((prev) => {
-      const nextApps = prev.applications.map((a) =>
-        a.id === appId ? { ...a, status: 'Approved' as const } : a
-      );
-
-      if (app.role === 'Program Secretary') {
-        return {
-          ...prev,
-          secretaryName: `${app.name} (${app.campus})`,
-          applications: nextApps,
-        };
-      }
-
-      const squadLetter = app.squad.split(' ')[1] || 'A';
-      const newCode = `UE-${squadLetter}${Math.floor(300 + Math.random() * 699)}`;
-      const newCA: Ambassador = {
-        id: `ca-${Date.now()}`,
-        name: app.name,
-        campus: app.campus,
-        squad: app.squad,
-        code: newCode,
-        workshopRegs: 0,
-        techLeads: 0,
-        brandPosts: 1,
-        clubEvents: 0,
-        status: 'Active',
-      };
-
-      return {
-        ...prev,
-        roster: [...prev.roster, newCA],
-        applications: nextApps,
-      };
-    });
-
-    showToast(`${app.name} approved and onboarded into the 4-Tier system.`);
-  };
-
-  const handleRejectApplication = (appId: string) => {
-    setDb((prev) => ({
-      ...prev,
-      applications: prev.applications.map((a) =>
-        a.id === appId ? { ...a, status: 'Rejected' } : a
-      ),
-    }));
-    showToast('Application marked as rejected.');
-  };
-
-  const handleUpdateKpiWeights = (weights: KpiWeights) => {
-    setDb((prev) => ({ ...prev, kpiWeights: weights }));
-    showToast('KPI weights updated and leaderboard recalculated.');
-  };
-
-  const handleIssueCertificate = (
-    holder: string,
-    campus: string,
-    role: string
-  ) => {
-    const id = `UE-CA-2026-${String(db.certificates.length + 1).padStart(3, '0')}`;
-    setDb((prev) => ({
-      ...prev,
-      certificates: [
-        {
-          id,
-          holder,
-          campus,
-          role,
-          issued: new Date().toISOString().slice(0, 10),
-          status: 'Valid',
-        },
-        ...prev.certificates,
-      ],
-    }));
-    showToast(`Issued certificate ${id} — verifiable immediately in Section 06.`);
-  };
-
-  const handleToggleCertStatus = (id: string) => {
-    setDb((prev) => ({
-      ...prev,
-      certificates: prev.certificates.map((c) =>
-        c.id === id
-          ? { ...c, status: c.status === 'Valid' ? 'Revoked' : 'Valid' }
-          : c
-      ),
-    }));
-  };
-
-  const handleCreateWorkshop = (title: string, date: string, fee: string) => {
-    setDb((prev) => ({
-      ...prev,
-      workshops: [
-        {
-          id: `ws-${Date.now()}`,
-          title,
-          date,
-          mode: 'Ulterior Engineering Official',
-          fee,
-          seats: 60,
-          regs: 0,
-          tag: 'New Launch',
-        },
-        ...prev.workshops,
-      ],
-    }));
-    showToast('New workshop published live to Section 05.');
-  };
-
-  // CSV Sync & Export Helpers
   const handleSyncGoogleSheetCSV = async (url: string) => {
     try {
       const res = await fetch(url);
@@ -504,7 +681,7 @@ export default function App() {
       const lines = text.trim().split(/\r?\n/);
       if (lines.length < 2) throw new Error('CSV appears empty');
 
-      const parsed: Ambassador[] = [];
+      const parsed: Omit<Ambassador, 'id'>[] = [];
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i]
           .split(',')
@@ -512,27 +689,23 @@ export default function App() {
         if (!cols[0]) continue;
         const candidateSquad = cols[2] as SquadName;
         parsed.push({
-          id: `csv-${i}`,
           name: cols[0],
           campus: cols[1] || 'Campus',
           squad: SQUADS_META[candidateSquad] ? candidateSquad : 'Squad A',
-          code: cols[3] || `UE-S${100 + i}`,
+          code: (cols[3] || `UE-S${100 + i}`).toUpperCase(),
           workshopRegs: parseInt(cols[4], 10) || 0,
           techLeads: parseInt(cols[5], 10) || 0,
           brandPosts: parseInt(cols[6], 10) || 0,
           clubEvents: 0,
-          status: cols[7] || 'Active',
+          status: cols[7] === 'Inactive' ? 'Inactive' : 'Active',
         });
       }
-
       if (!parsed.length) throw new Error('No valid rows found');
-      setDb((prev) => ({ ...prev, roster: parsed }));
-      showToast(`Synced ${parsed.length} ambassadors from Google Sheets.`);
+      await syncRosterBatchToFirestore(parsed);
+      showToast(`Synced ${parsed.length} ambassadors into Cloud Firestore.`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Network error';
-      showToast(
-        `Sync failed: Ensure sheet is published as public CSV (${message}).`
-      );
+      const msg = err instanceof Error ? err.message : 'Network error';
+      showToast(`Sync failed: ${msg}`);
       throw err;
     }
   };
@@ -540,10 +713,10 @@ export default function App() {
   const handleExportCSV = () => {
     const header =
       'Name,Campus,Squad,ReferralCode,WorkshopRegs,TechLeads,BrandPosts,TotalPoints,Status\n';
-    const rows = db.roster
+    const rows = portalData.roster
       .map(
         (r) =>
-          `"${r.name}","${r.campus}","${r.squad}","${r.code}",${r.workshopRegs},${r.techLeads},${r.brandPosts},${calcPoints(r, db.kpiWeights)},"${r.status}"`
+          `"${r.name}","${r.campus}","${r.squad}","${r.code}",${r.workshopRegs},${r.techLeads},${r.brandPosts},${calcPoints(r, portalData.kpiWeights)},"${r.status}"`
       )
       .join('\n');
     const blob = new Blob([header + rows], {
@@ -557,12 +730,12 @@ export default function App() {
   };
 
   const handleExportJSON = () => {
-    const blob = new Blob([JSON.stringify(db, null, 2)], {
+    const blob = new Blob([JSON.stringify(portalData, null, 2)], {
       type: 'application/json',
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `UE_CA_Portal_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `UE_CA_Cloud_Backup_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     showToast('Exported complete JSON portal backup.');
   };
@@ -578,16 +751,9 @@ export default function App() {
     }
   };
 
-  const handleConfirmReset = () => {
-    try {
-      localStorage.removeItem(DB_KEY);
-    } catch {
-      // ignore
-    }
-    setDb(JSON.parse(JSON.stringify(DEFAULT_DB)) as PortalDB);
-    setResetModalOpen(false);
-    showToast('Demo database reset to default 4-Tier Playbook state.');
-  };
+  const canBulkSyncCSV =
+    !!currentUser?.assigned &&
+    (isFullAccessRole(currentUser.role) || currentUser.role === 'lead1');
 
   return (
     <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100">
@@ -595,38 +761,45 @@ export default function App() {
         detectedRefCode={detectedRefCode}
         referringCA={referringCA}
         currentUser={currentUser}
-        onOpenAuthOrDashboard={handleOpenAuthOrDashboard}
+        authLoading={authLoading}
+        onOpenAuthOrDashboard={() => handleOpenAuthOrDashboard('standard')}
       />
 
       <main>
         <HeroSection
-          db={db}
+          db={portalData}
+          currentUser={currentUser}
           onApply={(role) => handleApply(role)}
-          onOpenDashboard={handleOpenAuthOrDashboard}
+          onOpenDashboard={() => handleOpenAuthOrDashboard('standard')}
+          onOpenDeveloperSignIn={() => handleOpenAuthOrDashboard('developer')}
         />
 
         <GovernanceSection onApply={(role) => handleApply(role)} />
 
         <ExComAndSquadsSection
-          db={db}
+          db={portalData}
+          currentUser={currentUser}
           onApply={handleApply}
-          onOpenRoleDemo={handleDemoLogin}
+          onOpenPersonalPortal={() => handleOpenAuthOrDashboard('standard')}
         />
 
         <LeaderboardSection
-          db={db}
+          db={portalData}
           onOpenSheetSync={() => setSheetSyncOpen(true)}
           onExportCSV={handleExportCSV}
         />
 
         <WorkshopsAndVerifySection
-          db={db}
+          db={portalData}
+          currentUser={currentUser}
+          onRequireSignIn={() => handleGoogleSignIn('standard')}
           onSelectWorkshop={(ws) => setActiveWorkshop(ws)}
+          onVerifyCertificate={handleVerifyCertificate}
           onSubmitClubPitch={handleSubmitClubPitch}
         />
       </main>
 
-      {/* Quiet Footer */}
+      {/* Quiet Footer with Direct App Download Button */}
       <footer className="border-t border-[#E2E5EB] dark:border-[#262B35] py-10 pb-20 text-xs text-[#5A6270] dark:text-slate-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
@@ -637,7 +810,8 @@ export default function App() {
             <span className="font-mono">ca.ulteriorengineering.com</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-5">
+          <div className="flex flex-wrap items-center gap-4">
+            <PWAInstallButton variant="compact" />
             <a
               href="https://ulteriorengineering.com/"
               target="_blank"
@@ -655,17 +829,17 @@ export default function App() {
             </button>
             <button
               type="button"
-              onClick={handleOpenAuthOrDashboard}
+              onClick={() => handleOpenAuthOrDashboard('standard')}
               className="hover:text-[#B51B27] transition-colors cursor-pointer"
             >
-              ExCom Login
+              Personal Sign In
             </button>
             <button
               type="button"
-              onClick={() => setResetModalOpen(true)}
-              className="hover:text-[#B51B27] font-mono transition-colors cursor-pointer"
+              onClick={() => handleOpenAuthOrDashboard('developer')}
+              className="font-mono font-semibold text-[#111318] dark:text-slate-200 hover:text-[#B51B27] transition-colors cursor-pointer"
             >
-              Reset Demo DB
+              Developer Sign In
             </button>
           </div>
         </div>
@@ -705,6 +879,9 @@ export default function App() {
         </div>
       </div>
 
+      {/* Offline Connectivity Banner */}
+      <OfflineIndicator />
+
       {/* Bottom-Right Playbook Guide Trigger */}
       <div className="fixed bottom-4 right-4 z-40">
         <button
@@ -728,24 +905,135 @@ export default function App() {
         </div>
       )}
 
-      {/* Role-Based Dashboard Overlay */}
+      {/* Personal Role-Locked Dashboard Overlay */}
       {dashboardOpen && currentUser && (
         <RoleDashboard
-          db={db}
+          db={portalData}
           user={currentUser}
-          onSwitchRole={handleDemoLogin}
           onClose={() => setDashboardOpen(false)}
           onLogout={handleLogout}
-          onReviewSubmission={handleReviewSubmission}
-          onSubmitCAProof={handleSubmitCAProof}
-          onUpdateLeadStage={handleUpdateLeadStage}
-          onPublishCampaignKit={handlePublishCampaignKit}
-          onApproveApplication={handleApproveApplication}
-          onRejectApplication={handleRejectApplication}
-          onUpdateKpiWeights={handleUpdateKpiWeights}
-          onIssueCertificate={handleIssueCertificate}
-          onToggleCertStatus={handleToggleCertStatus}
-          onCreateWorkshop={handleCreateWorkshop}
+          onApplyForRole={() => {
+            setDashboardOpen(false);
+            handleApply('General Campus Ambassador');
+          }}
+          onSeedCloudDB={async () => {
+            await seedInitialFirestoreData();
+            showToast('Default playbook data seeded to Cloud Firestore.');
+          }}
+          onUpsertRole={async (input) => {
+            await upsertRoleAssignment(input);
+            showToast(`Assigned ${input.role.toUpperCase()} access to ${input.email}.`);
+          }}
+          onDeleteRole={async (emailKey) => {
+            await removeRoleAssignment(emailKey);
+            showToast('Role access revoked.');
+          }}
+          onAddAmbassador={async (input) => {
+            await addOrUpdateAmbassador({
+              ...input,
+              workshopRegs: 0,
+              techLeads: 0,
+              brandPosts: 0,
+              clubEvents: 0,
+              status: 'Active',
+            });
+            showToast(`${input.name} added to Cloud Firestore roster.`);
+          }}
+          onReviewSubmission={async (subId, caCode, type, decision) => {
+            await reviewSubmissionAtomic({
+              subId,
+              caCode,
+              type,
+              decision,
+              roster: portalData.roster,
+            });
+            showToast(`Submission ${decision.toLowerCase()} — Cloud Leaderboard updated.`);
+          }}
+          onSubmitCAProof={async (type, detail) => {
+            const squad: SquadName =
+              currentUser.squad && currentUser.squad !== 'ALL'
+                ? currentUser.squad
+                : 'Squad A';
+            await submitCAProofDoc({
+              caCode: currentUser.caCode || 'UE-A101',
+              caName: currentUser.displayName,
+              campus: currentUser.campus || 'Campus',
+              squad,
+              type,
+              detail,
+            });
+            showToast('Proof saved to Cloud Firestore for Squad Lead & Secretary review.');
+          }}
+          onUpdateLeadStage={async (id, stage) => {
+            await updateTechLeadStageDoc(id, stage);
+            showToast(`Ticket ${id} moved to "${stage}".`);
+          }}
+          onPublishCampaignKit={async (title, copy) => {
+            await publishCampaignKitDoc({
+              title,
+              author:
+                currentUser.role === 'developer'
+                  ? 'Tier 0 · Platform Developer'
+                  : currentUser.role === 'secretary'
+                  ? 'Tier 2 · Program Secretary'
+                  : currentUser.role === 'lead4'
+                  ? 'Tier 3 · Lead 4 (Brand & PR)'
+                  : 'Tier 1 · Program Chair',
+              copy,
+            });
+            showToast('Campaign kit published live to all ambassadors.');
+          }}
+          onDeleteCampaignKit={async (kitId) => {
+            await deleteCampaignKitDoc(kitId);
+            showToast('Campaign kit deleted.');
+          }}
+          onApproveApplication={async (appId) => {
+            const app = portalData.applications.find((a) => a.id === appId);
+            if (!app) return;
+            const hasFull = isFullAccessRole(currentUser.role);
+            await approveApplicationAndOnboard(app, hasFull);
+            showToast(
+              hasFull
+                ? `${app.name} approved and granted personal portal access.`
+                : `${app.name} marked approved for final onboarding.`
+            );
+          }}
+          onRejectApplication={async (appId) => {
+            await rejectApplicationDoc(appId);
+            showToast('Application marked as rejected.');
+          }}
+          onUpdateKpiWeights={async (weights: KpiWeights) => {
+            await saveProgramSettings(weights, portalData.secretaryName);
+            showToast('KPI weights saved to Cloud Firestore.');
+          }}
+          onIssueCertificate={async (holder, campus, role) => {
+            const id = await issueCertificateDoc({
+              holder,
+              campus,
+              role,
+              existingCount: portalData.certificates.length,
+            });
+            showToast(`Issued certificate ${id} — live in Cloud Registry.`);
+          }}
+          onToggleCertStatus={async (id, currentStatus) => {
+            await toggleCertificateStatusDoc(id, currentStatus);
+            showToast(`Updated certificate ${id} status.`);
+          }}
+          onCreateWorkshop={async (title, date, fee) => {
+            await createWorkshopDoc({
+              title,
+              date,
+              mode: 'Ulterior Engineering Official',
+              fee,
+              seats: 60,
+              tag: 'New Launch',
+            });
+            showToast('New workshop published live to Cloud Firestore.');
+          }}
+          onUpdateClubPitchStatus={async (pitchId, status) => {
+            await updateClubPitchStatusDoc(pitchId, status);
+            showToast(`Club inquiry updated to "${status}".`);
+          }}
           onExportJSON={handleExportJSON}
           onExportCSV={handleExportCSV}
           onCopyText={handleCopyText}
@@ -755,15 +1043,18 @@ export default function App() {
       {/* Modals & Drawers */}
       <AuthModal
         open={authModalOpen}
+        initialMode={authModalMode}
+        signingIn={signingIn}
         onClose={() => setAuthModalOpen(false)}
-        onDemoLogin={handleDemoLogin}
-        onCodeLogin={handleCodeLogin}
+        onGoogleSignIn={handleGoogleSignIn}
       />
 
       <ApplyModal
         open={applyModalState.open}
         defaultRole={applyModalState.role}
         defaultSquad={applyModalState.squad}
+        currentUser={currentUser}
+        onRequireSignIn={() => handleGoogleSignIn('standard')}
         onClose={() => setApplyModalState((s) => ({ ...s, open: false }))}
         onSubmit={handleSubmitApplication}
       />
@@ -771,25 +1062,22 @@ export default function App() {
       <WorkshopModal
         workshop={activeWorkshop}
         defaultRefCode={detectedRefCode}
+        currentUser={currentUser}
+        onRequireSignIn={() => handleGoogleSignIn('standard')}
         onClose={() => setActiveWorkshop(null)}
         onSubmit={handleSubmitWorkshopReg}
       />
 
       <SheetSyncModal
         open={sheetSyncOpen}
+        canSync={canBulkSyncCSV}
         onClose={() => setSheetSyncOpen(false)}
         onSync={handleSyncGoogleSheetCSV}
       />
 
-      <ResetConfirmModal
-        open={resetModalOpen}
-        onCancel={() => setResetModalOpen(false)}
-        onConfirm={handleConfirmReset}
-      />
-
       <PlaybookGuideDrawer
         open={guideOpen}
-        kpiWeights={db.kpiWeights}
+        kpiWeights={portalData.kpiWeights}
         onClose={() => setGuideOpen(false)}
       />
     </div>

@@ -1,29 +1,31 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { BookOpen, X } from 'lucide-react';
-import { KpiWeights, SquadName, UserRole, Workshop } from '../types';
+import { BookOpen, Lock, ShieldCheck, Terminal, X } from 'lucide-react';
+import { KpiWeights, PortalUser, SquadName, Workshop } from '../types';
 
 interface AuthModalProps {
   open: boolean;
+  initialMode?: 'standard' | 'developer';
+  signingIn: boolean;
   onClose: () => void;
-  onDemoLogin: (role: UserRole) => void;
-  onCodeLogin: (code: string) => void;
+  onGoogleSignIn: (intent?: 'standard' | 'developer') => Promise<void>;
 }
 
 export function AuthModal({
   open,
+  initialMode = 'standard',
+  signingIn,
   onClose,
-  onDemoLogin,
-  onCodeLogin,
+  onGoogleSignIn,
 }: AuthModalProps) {
-  const [code, setCode] = useState('');
-  if (!open) return null;
+  const [mode, setMode] = useState<'standard' | 'developer'>(initialMode);
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!code.trim()) return;
-    onCodeLogin(code.trim());
-    setCode('');
-  };
+  useEffect(() => {
+    if (open) {
+      setMode(initialMode);
+    }
+  }, [open, initialMode]);
+
+  if (!open) return null;
 
   return (
     <div
@@ -32,17 +34,19 @@ export function AuthModal({
       aria-labelledby="auth-modal-title"
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
     >
-      <div className="bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-start justify-between border-b border-[#E2E5EB] dark:border-[#262B35] pb-3 mb-4">
+      <div className="bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto space-y-5">
+        <div className="flex items-start justify-between border-b border-[#E2E5EB] dark:border-[#262B35] pb-3">
           <div>
             <div className="text-xs font-mono font-semibold text-[#B51B27]">
-              Role-Based Portal Access
+              {mode === 'developer'
+                ? 'Tier 0 · Platform Developer Root Auth'
+                : 'Personal Verified Sign In'}
             </div>
             <h3
               id="auth-modal-title"
               className="font-display text-lg font-extrabold text-[#111318] dark:text-white"
             >
-              Sign In to CA / ExCom Dashboard
+              Ulterior Engineering Role-Locked Portal
             </h3>
           </div>
           <button
@@ -55,105 +59,154 @@ export function AuthModal({
           </button>
         </div>
 
-        <p className="text-xs text-[#5A6270] dark:text-slate-400 mb-4 leading-relaxed">
-          Select an instant role preview across all 4 tiers to inspect the full workflow, or sign
-          in using a registered ambassador referral code.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+        {/* Mode Switcher: Personal Portal vs Developer Root Sign In */}
+        <div
+          role="tablist"
+          aria-label="Sign in mode"
+          className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4F5F7] dark:bg-[#0D0F12] border border-[#E2E5EB] dark:border-[#262B35]"
+        >
           <button
             type="button"
-            onClick={() => onDemoLogin('chair')}
-            className="text-left p-4 rounded-xl border border-[#E2E5EB] dark:border-[#262B35] hover:border-[#B51B27] bg-[#F4F5F7]/70 dark:bg-[#0D0F12] transition-colors cursor-pointer"
+            role="tab"
+            aria-selected={mode === 'standard'}
+            onClick={() => setMode('standard')}
+            className={`py-2 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+              mode === 'standard'
+                ? 'bg-white dark:bg-[#15181E] text-[#111318] dark:text-white shadow-sm'
+                : 'text-[#5A6270] dark:text-slate-400 hover:text-[#111318] dark:hover:text-white'
+            }`}
           >
-            <div className="text-xs font-mono text-[#B51B27] font-semibold">
-              Tier 1 · Super Admin
-            </div>
-            <div className="font-display font-bold text-sm mt-1 text-[#111318] dark:text-white">
-              Program Chair
-            </div>
-            <div className="text-xs text-[#5A6270] dark:text-slate-400 mt-1">
-              Approvals, Certificates, KPI Config, Workshops
-            </div>
+            ExCom &amp; CA Sign In
           </button>
-
           <button
             type="button"
-            onClick={() => onDemoLogin('secretary')}
-            className="text-left p-4 rounded-xl border border-[#B51B27]/40 hover:border-[#B51B27] bg-[#B51B27]/[0.04] transition-colors cursor-pointer"
+            role="tab"
+            aria-selected={mode === 'developer'}
+            onClick={() => setMode('developer')}
+            className={`py-2 px-3 rounded-lg text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer ${
+              mode === 'developer'
+                ? 'bg-[#111318] text-white shadow-sm'
+                : 'text-[#5A6270] dark:text-slate-400 hover:text-[#111318] dark:hover:text-white'
+            }`}
           >
-            <div className="text-xs font-mono text-[#B51B27] font-semibold">
-              Tier 2 · Executive Ops
-            </div>
-            <div className="font-display font-bold text-sm mt-1 text-[#111318] dark:text-white">
-              Program Secretary
-            </div>
-            <div className="text-xs text-[#5A6270] dark:text-slate-400 mt-1">
-              Cross-Squad Audits, Broadcasts, CSV Export
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onDemoLogin('lead')}
-            className="text-left p-4 rounded-xl border border-[#E2E5EB] dark:border-[#262B35] hover:border-[#B51B27] bg-[#F4F5F7]/70 dark:bg-[#0D0F12] transition-colors cursor-pointer"
-          >
-            <div className="text-xs font-mono text-[#B51B27] font-semibold">
-              Tier 3 · Squad ExCom
-            </div>
-            <div className="font-display font-bold text-sm mt-1 text-[#111318] dark:text-white">
-              Core Team Lead
-            </div>
-            <div className="text-xs text-[#5A6270] dark:text-slate-400 mt-1">
-              KPI Approval Queue, Tech Lead Pipeline, Squad A
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onDemoLogin('ca')}
-            className="text-left p-4 rounded-xl border border-[#E2E5EB] dark:border-[#262B35] hover:border-[#B51B27] bg-[#F4F5F7]/70 dark:bg-[#0D0F12] transition-colors cursor-pointer"
-          >
-            <div className="text-xs font-mono text-[#B51B27] font-semibold">
-              Tier 4 · Ambassador
-            </div>
-            <div className="font-display font-bold text-sm mt-1 text-[#111318] dark:text-white">
-              General CA
-            </div>
-            <div className="text-xs text-[#5A6270] dark:text-slate-400 mt-1">
-              Referral Link, Submit Proof &amp; Leads, Brand Kits
-            </div>
+            <Terminal className="w-3.5 h-3.5 text-[#B51B27]" />
+            <span>Developer Sign In</span>
           </button>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="pt-4 border-t border-[#E2E5EB] dark:border-[#262B35] space-y-2.5"
-        >
-          <label
-            htmlFor="roster-code-input"
-            className="block text-xs font-mono text-[#5A6270] dark:text-slate-400"
-          >
-            Or Sign In with Ambassador Referral Code
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="roster-code-input"
-              type="text"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="e.g., UE-A101 or UE-B204"
-              required
-              className="flex-1 text-xs font-mono bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2 focus:outline-none focus:border-[#B51B27]"
-            />
+        {mode === 'developer' ? (
+          <div className="space-y-4">
+            <div className="bg-[#111318] text-white rounded-xl p-5 border border-[#262B35] space-y-3">
+              <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-[#B51B27]">
+                <Terminal className="w-4 h-4" />
+                <span>Tier 0 · Sole Root Full Control</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Reserved exclusively for the verified Platform Developer account. Only the
+                Developer holds supreme full control across the entire site, appoints or revokes
+                the <strong className="text-white">Program Chair</strong>, and manages root
+                database governance.
+              </p>
+              <ul className="text-[11px] font-mono text-slate-400 space-y-1.5 pt-1">
+                <li>• Appoint, replace, or revoke Program Chair (Developer-exclusive)</li>
+                <li>• Full access to Developer Root, Chair, Secretary, Leads 1–5 &amp; CA portals</li>
+                <li>• Protected by Firestore security rules — cannot be overridden by Chair</li>
+              </ul>
+            </div>
+
             <button
-              type="submit"
-              className="bg-[#111318] dark:bg-white text-white dark:text-[#111318] text-xs font-semibold px-4 py-2 rounded-lg hover:bg-[#B51B27] dark:hover:bg-[#B51B27] dark:hover:text-white transition-colors cursor-pointer"
+              type="button"
+              disabled={signingIn}
+              onClick={() => void onGoogleSignIn('developer')}
+              className="w-full inline-flex items-center justify-center gap-3 bg-[#111318] hover:bg-[#B51B27] disabled:opacity-60 text-white text-sm font-semibold py-3 px-5 rounded-xl transition-colors cursor-pointer"
             >
-              Sign In
+              <Terminal className="w-4 h-4" />
+              <span>
+                {signingIn ? 'Verifying Developer Clearance...' : 'Sign In as Platform Developer (Google)'}
+              </span>
             </button>
           </div>
-        </form>
+        ) : (
+          <>
+            <p className="text-xs text-[#5A6270] dark:text-slate-300 leading-relaxed">
+              Sign in with your personal Google account. Only the{' '}
+              <strong className="text-[#111318] dark:text-white">Platform Developer</strong> and{' '}
+              <strong className="text-[#111318] dark:text-white">
+                Developer-appointed Program Chair
+              </strong>{' '}
+              have full-site access. Every other role is strictly locked to its segment:
+            </p>
+
+            <div className="divide-y divide-[#E2E5EB] dark:divide-[#262B35] text-xs border border-[#E2E5EB] dark:border-[#262B35] rounded-xl px-4">
+              <div className="py-3 flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-[#111318] dark:text-white">
+                    Tier 1 · Program Chair (Appointed by Developer · Full Site Access)
+                  </div>
+                  <div className="text-[#5A6270] dark:text-slate-400">
+                    Full operational access to every ExCom hub, Leads 1–5, KPI weights,
+                    certificates, and assigning Secretary / Lead / CA roles.
+                  </div>
+                </div>
+              </div>
+
+              <div className="py-3 flex items-start gap-2.5">
+                <Lock className="w-4 h-4 text-[#5A6270] dark:text-slate-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-[#111318] dark:text-white">
+                    Tier 2 · Program Secretary (Secretary Segment Only)
+                  </div>
+                  <div className="text-[#5A6270] dark:text-slate-400">
+                    Dedicated access to cross-squad KPI audits, central campaign broadcasts, and
+                    Chair sync exports.
+                  </div>
+                </div>
+              </div>
+
+              <div className="py-3 flex items-start gap-2.5">
+                <Lock className="w-4 h-4 text-[#5A6270] dark:text-slate-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-[#111318] dark:text-white">
+                    Tier 3 · Core Team Leads 1–5 (Particular Lead Segment Only)
+                  </div>
+                  <div className="text-[#5A6270] dark:text-slate-400">
+                    Each Lead accesses strictly their own portfolio (Ops, Growth, Tech Leads, Brand,
+                    or Clubs) and assigned Squad (A–E).
+                  </div>
+                </div>
+              </div>
+
+              <div className="py-3 flex items-start gap-2.5">
+                <Lock className="w-4 h-4 text-[#5A6270] dark:text-slate-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-[#111318] dark:text-white">
+                    Tier 4 · General Campus Ambassador (Personal Dashboard Only)
+                  </div>
+                  <div className="text-[#5A6270] dark:text-slate-400">
+                    Personal referral link, verified scorecards, proof submissions, and campaign
+                    kits.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={signingIn}
+              onClick={() => void onGoogleSignIn('standard')}
+              className="w-full inline-flex items-center justify-center gap-3 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white text-sm font-semibold py-3 px-5 rounded-xl transition-colors cursor-pointer"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M21.35 11.1h-9.18v2.92h5.27c-.23 1.48-1.74 4.35-5.27 4.35-3.17 0-5.76-2.63-5.76-5.87s2.59-5.87 5.76-5.87c1.81 0 3.02.77 3.71 1.43l2.53-2.44C16.79 4.1 14.69 3.2 12.17 3.2 7.21 3.2 3.2 7.21 3.2 12.17s4.01 8.97 8.97 8.97c5.18 0 8.61-3.64 8.61-8.77 0-.59-.06-1.04-.14-1.27z"
+                />
+              </svg>
+              <span>{signingIn ? 'Verifying Google Account...' : 'Continue with Google'}</span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -163,6 +216,8 @@ interface ApplyModalProps {
   open: boolean;
   defaultRole: string;
   defaultSquad: SquadName;
+  currentUser: PortalUser | null;
+  onRequireSignIn: () => Promise<void>;
   onClose: () => void;
   onSubmit: (app: {
     role: string;
@@ -171,13 +226,15 @@ interface ApplyModalProps {
     squad: SquadName;
     email: string;
     exp: string;
-  }) => void;
+  }) => Promise<void>;
 }
 
 export function ApplyModal({
   open,
   defaultRole,
   defaultSquad,
+  currentUser,
+  onRequireSignIn,
   onClose,
   onSubmit,
 }: ApplyModalProps) {
@@ -185,33 +242,43 @@ export function ApplyModal({
   const [name, setName] = useState('');
   const [campus, setCampus] = useState('');
   const [squad, setSquad] = useState<SquadName>(defaultSquad);
-  const [email, setEmail] = useState('');
   const [exp, setExp] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
       setRole(defaultRole);
       setSquad(defaultSquad);
+      if (currentUser?.displayName && !name) {
+        setName(currentUser.displayName);
+      }
     }
-  }, [open, defaultRole, defaultSquad]);
+  }, [open, defaultRole, defaultSquad, currentUser]);
 
   if (!open) return null;
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      role,
-      name: name.trim(),
-      campus: campus.trim(),
-      squad,
-      email: email.trim(),
-      exp: exp.trim(),
-    });
-    setName('');
-    setCampus('');
-    setEmail('');
-    setExp('');
-    onClose();
+    if (!currentUser) {
+      await onRequireSignIn();
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        role,
+        name: name.trim(),
+        campus: campus.trim(),
+        squad,
+        email: currentUser.email,
+        exp: exp.trim(),
+      });
+      setCampus('');
+      setExp('');
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -324,15 +391,13 @@ export function ApplyModal({
             </div>
             <div>
               <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-                Email Address
+                Verified Account Email
               </label>
               <input
                 type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="student@university.edu"
-                className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+                readOnly
+                value={currentUser ? currentUser.email : 'Sign in with Google below'}
+                className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#5A6270] dark:text-slate-400 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
               />
             </div>
           </div>
@@ -344,6 +409,7 @@ export function ApplyModal({
             <textarea
               rows={3}
               required
+              minLength={5}
               value={exp}
               onChange={(e) => setExp(e.target.value)}
               placeholder="Mention IEEE, Robotics, EEE/CSE club leadership and how you would grow Ulterior Engineering on campus..."
@@ -353,9 +419,21 @@ export function ApplyModal({
 
           <button
             type="submit"
-            className="w-full bg-[#B51B27] hover:bg-[#92141E] text-white font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
+            disabled={submitting}
+            className="w-full inline-flex items-center justify-center gap-2 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
           >
-            Submit Application to Program Chair &amp; Secretary
+            {currentUser ? (
+              <span>
+                {submitting
+                  ? 'Saving Application...'
+                  : 'Submit Application to Program Chair & Secretary'}
+              </span>
+            ) : (
+              <>
+                <Lock className="w-3.5 h-3.5" />
+                <span>Sign in with Google to Submit Application</span>
+              </>
+            )}
           </button>
         </form>
       </div>
@@ -366,48 +444,64 @@ export function ApplyModal({
 interface WorkshopModalProps {
   workshop: Workshop | null;
   defaultRefCode: string;
+  currentUser: PortalUser | null;
+  onRequireSignIn: () => Promise<void>;
   onClose: () => void;
   onSubmit: (reg: {
     workshopId: string;
-    name: string;
-    univ: string;
+    workshopTitle: string;
+    participantName: string;
+    university: string;
     email: string;
     refCode: string;
-  }) => void;
+  }) => Promise<void>;
 }
 
 export function WorkshopModal({
   workshop,
   defaultRefCode,
+  currentUser,
+  onRequireSignIn,
   onClose,
   onSubmit,
 }: WorkshopModalProps) {
   const [name, setName] = useState('');
   const [univ, setUniv] = useState('');
-  const [email, setEmail] = useState('');
   const [refCode, setRefCode] = useState(defaultRefCode);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (workshop) {
       setRefCode(defaultRefCode);
+      if (currentUser?.displayName && !name) {
+        setName(currentUser.displayName);
+      }
     }
-  }, [workshop, defaultRefCode]);
+  }, [workshop, defaultRefCode, currentUser]);
 
   if (!workshop) return null;
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      workshopId: workshop.id,
-      name: name.trim(),
-      univ: univ.trim(),
-      email: email.trim(),
-      refCode: refCode.trim().toUpperCase(),
-    });
-    setName('');
-    setUniv('');
-    setEmail('');
-    onClose();
+    if (!currentUser) {
+      await onRequireSignIn();
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        workshopId: workshop.id,
+        workshopTitle: workshop.title,
+        participantName: name.trim(),
+        university: univ.trim(),
+        email: currentUser.email,
+        refCode: refCode.trim().toUpperCase(),
+      });
+      setUniv('');
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -469,19 +563,6 @@ export function WorkshopModal({
           </div>
           <div>
             <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
-            />
-          </div>
-          <div>
-            <label className="block font-semibold text-[#111318] dark:text-slate-200 mb-1">
               CA Referral Code{' '}
               <span className="font-normal text-[#5A6270] dark:text-slate-400">
                 (Optional — Auto-filled from link)
@@ -497,9 +578,17 @@ export function WorkshopModal({
           </div>
           <button
             type="submit"
-            className="w-full bg-[#B51B27] hover:bg-[#92141E] text-white font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
+            disabled={submitting}
+            className="w-full inline-flex items-center justify-center gap-2 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
           >
-            Confirm Registration
+            {currentUser ? (
+              <span>{submitting ? 'Confirming...' : 'Confirm Registration'}</span>
+            ) : (
+              <>
+                <Lock className="w-3.5 h-3.5" />
+                <span>Sign in with Google to Register</span>
+              </>
+            )}
           </button>
         </form>
       </div>
@@ -509,11 +598,17 @@ export function WorkshopModal({
 
 interface SheetSyncModalProps {
   open: boolean;
+  canSync: boolean;
   onClose: () => void;
   onSync: (url: string) => Promise<void>;
 }
 
-export function SheetSyncModal({ open, onClose, onSync }: SheetSyncModalProps) {
+export function SheetSyncModal({
+  open,
+  canSync,
+  onClose,
+  onSync,
+}: SheetSyncModalProps) {
   const [url, setUrl] = useState('');
   const [syncing, setSyncing] = useState(false);
 
@@ -521,7 +616,7 @@ export function SheetSyncModal({ open, onClose, onSync }: SheetSyncModalProps) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!url.trim()) return;
+    if (!url.trim() || !canSync) return;
     setSyncing(true);
     try {
       await onSync(url.trim());
@@ -543,7 +638,7 @@ export function SheetSyncModal({ open, onClose, onSync }: SheetSyncModalProps) {
         <div className="flex items-start justify-between border-b border-[#E2E5EB] dark:border-[#262B35] pb-3 mb-4">
           <div>
             <div className="text-xs font-mono font-semibold text-[#B51B27]">
-              Live Spreadsheet Integration
+              Cloud Roster Sync
             </div>
             <h3
               id="sheet-sync-title"
@@ -562,95 +657,62 @@ export function SheetSyncModal({ open, onClose, onSync }: SheetSyncModalProps) {
           </button>
         </div>
 
-        <p className="text-xs text-[#5A6270] dark:text-slate-400 leading-relaxed mb-3">
-          In Google Sheets, click{' '}
-          <strong className="text-[#111318] dark:text-slate-200">
-            File → Share → Publish to web → Comma-separated values (.csv)
-          </strong>
-          . Expected columns:
-          <code className="block mt-2 p-2.5 rounded-lg bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-200 font-mono text-[11px] overflow-x-auto">
-            Name,Campus,Squad,ReferralCode,WorkshopRegs,TechLeads,BrandPosts,Status
-          </code>
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
-          <input
-            type="url"
-            required
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv"
-            className="w-full font-mono bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
-          />
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={syncing}
-              className="flex-1 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg cursor-pointer"
-            >
-              {syncing ? 'Fetching CSV...' : 'Fetch & Sync Roster'}
-            </button>
+        {!canSync ? (
+          <div className="space-y-4 text-xs text-[#5A6270] dark:text-slate-300">
+            <p>
+              Only the signed-in <strong>Platform Developer</strong>,{' '}
+              <strong>Program Chair</strong>, or <strong>Lead 1 (Operations &amp; CA HR)</strong>{' '}
+              can bulk-import Google Sheets CSV records into the live Cloud Firestore roster.
+            </p>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-lg border border-[#E2E5EB] dark:border-[#262B35] text-[#111318] dark:text-slate-200 font-semibold cursor-pointer"
+              className="w-full py-2.5 rounded-lg border border-[#E2E5EB] dark:border-[#262B35] font-semibold text-[#111318] dark:text-white cursor-pointer"
             >
-              Cancel
+              Close
             </button>
           </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+        ) : (
+          <>
+            <p className="text-xs text-[#5A6270] dark:text-slate-400 leading-relaxed mb-3">
+              In Google Sheets, click{' '}
+              <strong className="text-[#111318] dark:text-slate-200">
+                File → Share → Publish to web → Comma-separated values (.csv)
+              </strong>
+              . Expected columns:
+              <code className="block mt-2 p-2.5 rounded-lg bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-200 font-mono text-[11px] overflow-x-auto">
+                Name,Campus,Squad,ReferralCode,WorkshopRegs,TechLeads,BrandPosts,Status
+              </code>
+            </p>
 
-interface ResetConfirmModalProps {
-  open: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}
-
-export function ResetConfirmModal({
-  open,
-  onCancel,
-  onConfirm,
-}: ResetConfirmModalProps) {
-  if (!open) return null;
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="reset-confirm-title"
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-    >
-      <div className="bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-2xl max-w-sm w-full p-6 space-y-4">
-        <h3
-          id="reset-confirm-title"
-          className="font-display text-base font-extrabold text-[#111318] dark:text-white"
-        >
-          Reset Demo Data?
-        </h3>
-        <p className="text-xs text-[#5A6270] dark:text-slate-400 leading-relaxed">
-          This restores the roster, KPI weights, submissions, workshops, and certificates back to
-          the default 4-Tier Playbook seed state.
-        </p>
-        <div className="flex justify-end gap-2 text-xs">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 rounded-lg border border-[#E2E5EB] dark:border-[#262B35] text-[#111318] dark:text-slate-200 font-semibold cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="px-4 py-2 rounded-lg bg-[#B51B27] hover:bg-[#92141E] text-white font-semibold cursor-pointer"
-          >
-            Reset Data
-          </button>
-        </div>
+            <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+              <input
+                type="url"
+                required
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv"
+                className="w-full font-mono bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={syncing}
+                  className="flex-1 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg cursor-pointer"
+                >
+                  {syncing ? 'Syncing to Cloud...' : 'Fetch & Sync to Firestore'}
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-lg border border-[#E2E5EB] dark:border-[#262B35] text-[#111318] dark:text-slate-200 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
@@ -668,13 +730,13 @@ export function PlaybookGuideDrawer({
   onClose,
 }: PlaybookGuideDrawerProps) {
   const [selectedTopic, setSelectedTopic] = useState<
-    'hierarchy' | 'secretary' | 'kpi' | 'referral'
+    'hierarchy' | 'access' | 'kpi' | 'referral'
   >('hierarchy');
 
   if (!open) return null;
 
   const topics: {
-    id: 'hierarchy' | 'secretary' | 'kpi' | 'referral';
+    id: 'hierarchy' | 'access' | 'kpi' | 'referral';
     label: string;
     title: string;
     body: string;
@@ -683,13 +745,13 @@ export function PlaybookGuideDrawer({
       id: 'hierarchy',
       label: '4-Tier Structure',
       title: '4-Tier Governance Hierarchy',
-      body: '1. Program Chair interfaces with Ulterior Engineering Management and sets quarterly targets. 2. Program Secretary coordinates all 5 Core Team Leads, audits KPIs, and runs ExCom syncs. 3. Five Core Team Leads own functional portfolios and lead Squads A–E. 4. General CAs execute campaigns on their home campuses.',
+      body: '1. Program Chair interfaces with Ulterior Engineering Management and holds full portal authority. 2. Program Secretary coordinates all 5 Core Team Leads, audits KPIs, and runs ExCom syncs. 3. Five Core Team Leads own functional portfolios and lead Squads A–E. 4. General CAs execute campaigns on their home campuses.',
     },
     {
-      id: 'secretary',
-      label: 'Secretary Role',
-      title: 'Program Secretary Mandate (Tier 2)',
-      body: 'The Program Secretary sits between the Program Chair and the 5 Core Team Leads. They supervise cross-squad KPI audits, enforce weekly submission cutoffs, publish central campaign broadcasts, and prepare Chair sync reports.',
+      id: 'access',
+      label: 'Personal Access',
+      title: 'Developer Root & Role-Isolated Sign In',
+      body: 'Only the Platform Developer (Tier 0) holds sole root control and appoints or revokes the Program Chair. Both Developer and the appointed Chair can access all program workspaces, while the Secretary, Core Leads 1–5, and General CAs are strictly locked to their own assigned segment.',
     },
     {
       id: 'kpi',
@@ -701,7 +763,7 @@ export function PlaybookGuideDrawer({
       id: 'referral',
       label: 'Referral Links',
       title: 'Automated Referral Attribution',
-      body: 'Every General CA receives a personal URL formatted as ?ref=CODE inside their Tier 4 Dashboard. When a student registers for a workshop through that link, the referral code auto-fills and enters the Core Lead and Secretary approval queue.',
+      body: 'Every General CA receives a personal URL formatted as ?ref=CODE inside their personal Tier 4 Dashboard. When a student registers for a workshop through that link, the referral code auto-fills and enters the Core Lead and Secretary approval queue.',
     },
   ];
 
@@ -719,7 +781,7 @@ export function PlaybookGuideDrawer({
           <div>
             <div className="text-xs font-bold">UE CA Playbook Guide</div>
             <div className="text-[11px] font-mono text-slate-400">
-              4-Tier Governance &amp; KPI Reference
+              4-Tier Governance &amp; Security Reference
             </div>
           </div>
         </div>
