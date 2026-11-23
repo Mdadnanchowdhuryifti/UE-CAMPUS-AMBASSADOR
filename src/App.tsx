@@ -39,6 +39,7 @@ import {
   updateRecruitmentStatusDoc,
   updateTechLeadStageDoc,
   upsertRoleAssignment,
+  validateGoogleSheetsCsvUrl,
   verifyCertificateById,
 } from './services/portalService';
 import { calcPoints, DEFAULT_DB, SQUADS_META } from './data/playbook';
@@ -601,7 +602,7 @@ export default function App() {
           setAuthModalMode('developer');
           setAuthModalOpen(true);
           setAuthError(
-            `Access Denied for ${signedEmail || 'this account'}. Only the two Main Developers (adnanchowdhury477@gmail.com, mdadnanchowdhuryifti@gmail.com) or Developers explicitly added by them can access Developer Mode.`
+            'Access Denied. This Google account is not authorized for Developer Mode.'
           );
           return;
         }
@@ -709,15 +710,21 @@ export default function App() {
     email: string;
     refCode: string;
   }) => {
-    await submitWorkshopRegistrationDoc({
-      ...reg,
-      roster: portalData.roster,
-    });
-    showToast(
-      reg.refCode
-        ? `Registered! Referral ${reg.refCode} logged to the Squad Lead & Secretary queue.`
-        : `Workshop registration confirmed for ${reg.participantName}.`
-    );
+    try {
+      await submitWorkshopRegistrationDoc({
+        ...reg,
+        roster: portalData.roster,
+      });
+      showToast(
+        reg.refCode
+          ? `Registered! Referral ${reg.refCode} logged to the Squad Lead & Secretary queue.`
+          : `Workshop registration confirmed for ${reg.participantName}.`
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unable to register for workshop.';
+      showToast(msg);
+      throw err;
+    }
   };
 
   const handleVerifyCertificate = async (
@@ -747,7 +754,8 @@ export default function App() {
 
   const handleSyncGoogleSheetCSV = async (url: string) => {
     try {
-      const res = await fetch(url);
+      const safeUrl = validateGoogleSheetsCsvUrl(url);
+      const res = await fetch(safeUrl);
       if (!res.ok) throw new Error('Could not fetch CSV');
       const text = await res.text();
       const lines = text.trim().split(/\r?\n/);
@@ -782,22 +790,39 @@ export default function App() {
     }
   };
 
+  const sanitizeCsvCell = (raw: string | number): string => {
+    const str = String(raw ?? '');
+    const neutralized = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+    return `"${neutralized.replace(/"/g, '""')}"`;
+  };
+
   const handleExportCSV = () => {
     const header =
       'Name,Campus,Squad,ReferralCode,WorkshopRegs,TechLeads,BrandPosts,TotalPoints,Status\n';
     const rows = portalData.roster
-      .map(
-        (r) =>
-          `"${r.name}","${r.campus}","${r.squad}","${r.code}",${r.workshopRegs},${r.techLeads},${r.brandPosts},${calcPoints(r, portalData.kpiWeights)},"${r.status}"`
+      .map((r) =>
+        [
+          sanitizeCsvCell(r.name),
+          sanitizeCsvCell(r.campus),
+          sanitizeCsvCell(r.squad),
+          sanitizeCsvCell(r.code),
+          r.workshopRegs,
+          r.techLeads,
+          r.brandPosts,
+          calcPoints(r, portalData.kpiWeights),
+          sanitizeCsvCell(r.status),
+        ].join(',')
       )
       .join('\n');
     const blob = new Blob([header + rows], {
       type: 'text/csv;charset=utf-8;',
     });
+    const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = objectUrl;
     a.download = `UE_CA_Monthly_Log_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     showToast('Exported Monthly Squad Performance Log (.csv).');
   };
 
@@ -805,10 +830,12 @@ export default function App() {
     const blob = new Blob([JSON.stringify(portalData, null, 2)], {
       type: 'application/json',
     });
+    const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = objectUrl;
     a.download = `UE_CA_Cloud_Backup_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     showToast('Exported complete JSON portal backup.');
   };
 
@@ -844,7 +871,6 @@ export default function App() {
           onApply={(role) => handleApply(role)}
           onOpenDashboard={() => handleOpenAuthOrDashboard('standard')}
           onOpenExecutiveSignIn={() => handleOpenAuthOrDashboard('executive')}
-          onOpenDeveloperSignIn={() => handleOpenAuthOrDashboard('developer')}
         />
 
         <GovernanceSection

@@ -13,6 +13,7 @@ import {
   getFirstOpenRecruitmentRoleTitle,
   hasAnyOpenRecruitmentRole,
   isRoleOpenForRecruitment,
+  validateGoogleSheetsCsvUrl,
 } from '../services/portalService';
 import {
   AuthSignInMode,
@@ -153,22 +154,11 @@ export function AuthModal({
 
         {mode === 'developer' ? (
           <div className="space-y-4">
-            <div className="bg-[#111318] text-white rounded-xl p-5 border border-[#262B35] space-y-3">
+            <div className="bg-[#111318] text-white rounded-xl px-5 py-4 border border-[#262B35]">
               <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-[#B51B27]">
                 <Terminal className="w-4 h-4" />
-                <span>Tier 0 · Locked Main Developer Access</span>
+                <span>Tier 0 · Developer Access</span>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Strictly restricted to the two verified{' '}
-                <strong className="text-white">Main Developer</strong> accounts or secondary
-                Developers explicitly provisioned by them. Any other email is automatically
-                rejected.
-              </p>
-              <ul className="text-[11px] font-mono text-slate-400 space-y-1.5 pt-1">
-                <li>• Only the 2 Main Developers can add or revoke Developer accounts</li>
-                <li>• Appoint or revoke Program Chair &amp; Company CEO emails</li>
-                <li>• Control recruitment open/close switches &amp; full site governance</li>
-              </ul>
             </div>
 
             <button
@@ -620,10 +610,12 @@ export function WorkshopModal({
   const [univ, setUniv] = useState('');
   const [refCode, setRefCode] = useState(defaultRefCode);
   const [submitting, setSubmitting] = useState(false);
+  const [regError, setRegError] = useState<string | null>(null);
 
   useEffect(() => {
     if (workshop) {
       setRefCode(defaultRefCode);
+      setRegError(null);
       if (currentUser?.displayName && !name) {
         setName(currentUser.displayName);
       }
@@ -632,8 +624,12 @@ export function WorkshopModal({
 
   if (!workshop) return null;
 
+  const isFull = workshop.seats > 0 && workshop.regs >= workshop.seats;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (isFull) return;
+    setRegError(null);
     if (!currentUser) {
       await onRequireSignIn();
       return;
@@ -650,6 +646,10 @@ export function WorkshopModal({
       });
       setUniv('');
       onClose();
+    } catch (err) {
+      setRegError(
+        err instanceof Error ? err.message : 'Unable to complete workshop registration.'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -684,6 +684,16 @@ export function WorkshopModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {(regError || isFull) && (
+          <div
+            role="alert"
+            className="mb-3 flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs text-red-800 dark:text-red-200"
+          >
+            <AlertCircle className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
+            <span>{regError || 'This workshop has reached full seat capacity.'}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
@@ -729,10 +739,12 @@ export function WorkshopModal({
           </div>
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full inline-flex items-center justify-center gap-2 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
+            disabled={submitting || isFull}
+            className="w-full inline-flex items-center justify-center gap-2 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
           >
-            {currentUser ? (
+            {isFull ? (
+              <span>Workshop Full</span>
+            ) : currentUser ? (
               <span>{submitting ? 'Confirming...' : 'Confirm Registration'}</span>
             ) : (
               <>
@@ -762,17 +774,30 @@ export function SheetSyncModal({
 }: SheetSyncModalProps) {
   const [url, setUrl] = useState('');
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   if (!open) return null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!url.trim() || !canSync) return;
+    setSyncError(null);
+    let safeUrl: string;
+    try {
+      safeUrl = validateGoogleSheetsCsvUrl(url);
+    } catch (err) {
+      setSyncError(
+        err instanceof Error ? err.message : 'Invalid Google Sheets CSV URL.'
+      );
+      return;
+    }
     setSyncing(true);
     try {
-      await onSync(url.trim());
+      await onSync(safeUrl);
       setUrl('');
       onClose();
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : 'Unable to sync CSV.');
     } finally {
       setSyncing(false);
     }
@@ -812,8 +837,9 @@ export function SheetSyncModal({
           <div className="space-y-4 text-xs text-[#5A6270] dark:text-slate-300">
             <p>
               Only the signed-in <strong>Platform Developer</strong>,{' '}
-              <strong>Program Chair</strong>, or <strong>Lead 1 (Operations &amp; CA HR)</strong>{' '}
-              can bulk-import Google Sheets CSV records into the live Cloud Firestore roster.
+              <strong>Program Chair</strong>, <strong>Company CEO</strong>, or{' '}
+              <strong>Lead 1 (Operations &amp; CA HR)</strong> can bulk-import Google Sheets CSV
+              records into the live Cloud Firestore roster.
             </p>
             <button
               type="button"
@@ -836,12 +862,25 @@ export function SheetSyncModal({
               </code>
             </p>
 
+            {syncError && (
+              <div
+                role="alert"
+                className="mb-3 flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs text-red-800 dark:text-red-200"
+              >
+                <AlertCircle className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
+                <span>{syncError}</span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-3 text-xs">
               <input
                 type="url"
                 required
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  if (syncError) setSyncError(null);
+                }}
                 placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv"
                 className="w-full font-mono bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5"
               />

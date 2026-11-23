@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { ArrowRight, ArrowUpRight, Crown, Lock, ShieldCheck, Terminal } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Crown, Lock, ShieldCheck } from 'lucide-react';
 import {
   getFirstOpenRecruitmentRoleTitle,
   hasAnyOpenRecruitmentRole,
@@ -13,7 +13,6 @@ interface HeroSectionProps {
   onApply: (role: string) => void;
   onOpenDashboard: () => void;
   onOpenExecutiveSignIn: () => void;
-  onOpenDeveloperSignIn: () => void;
 }
 
 export function HeroSection({
@@ -22,7 +21,6 @@ export function HeroSection({
   onApply,
   onOpenDashboard,
   onOpenExecutiveSignIn,
-  onOpenDeveloperSignIn,
 }: HeroSectionProps) {
   const totalWorkshops = db.roster.reduce((sum, r) => sum + r.workshopRegs, 0);
   const totalLeads = db.roster.reduce((sum, r) => sum + r.techLeads, 0);
@@ -134,15 +132,6 @@ export function HeroSection({
                 >
                   <Crown className="w-3.5 h-3.5 text-[#B51B27] shrink-0" />
                   <span>Chair &amp; CEO Sign In</span>
-                </button>
-                <span aria-hidden="true">·</span>
-                <button
-                  type="button"
-                  onClick={onOpenDeveloperSignIn}
-                  className="inline-flex items-center gap-1.5 font-mono font-semibold text-[#111318] dark:text-white hover:text-[#B51B27] underline underline-offset-4 cursor-pointer"
-                >
-                  <Terminal className="w-3.5 h-3.5 text-[#B51B27] shrink-0" />
-                  <span>Developer Root Sign In</span>
                 </button>
               </div>
             )}

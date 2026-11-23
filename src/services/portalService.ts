@@ -142,6 +142,25 @@ function safeId(prefix: string): string {
   );
 }
 
+export function validateGoogleSheetsCsvUrl(rawUrl: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl.trim());
+  } catch {
+    throw new Error('Please enter a valid HTTPS Google Sheets published CSV link.');
+  }
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.hostname !== 'docs.google.com' ||
+    !parsed.pathname.startsWith('/spreadsheets/')
+  ) {
+    throw new Error(
+      'Only published Google Sheets URLs on https://docs.google.com/spreadsheets/ are allowed.'
+    );
+  }
+  return parsed.toString();
+}
+
 /**
  * Populates Firestore with clean initial program data when the Program Chair first launches an empty DB.
  */
@@ -474,35 +493,47 @@ export async function submitWorkshopRegistrationDoc(input: {
   roster: Ambassador[];
 }): Promise<void> {
   const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error('Please sign in with Google to register.');
+  const authEmail = auth.currentUser?.email;
+  if (!uid || !authEmail) throw new Error('Please sign in with Google to register.');
 
-  const regId = safeId('reg');
+  const regId = `${input.workshopId}_${uid}`;
   const cleanRef = clamp(input.refCode.toUpperCase().replace(/[^A-Z0-9-]/g, ''), 32);
 
-  try {
-    const wsRef = doc(db, 'workshops', input.workshopId);
-    const wsSnap = await getDoc(wsRef);
-    const currentRegs = wsSnap.exists() ? Number(wsSnap.data().regs || 0) : 0;
+  const wsRef = doc(db, 'workshops', input.workshopId);
+  const regRef = doc(db, 'workshop_registrations', regId);
+  const [wsSnap, existingRegSnap] = await Promise.all([getDoc(wsRef), getDoc(regRef)]);
 
+  if (!wsSnap.exists()) {
+    throw new Error('This workshop is no longer available.');
+  }
+  if (existingRegSnap.exists()) {
+    throw new Error('You have already registered for this workshop with your Google account.');
+  }
+
+  const currentRegs = Number(wsSnap.data().regs || 0);
+  const totalSeats = Number(wsSnap.data().seats || 0);
+  if (totalSeats > 0 && currentRegs >= totalSeats) {
+    throw new Error('This workshop has reached full seat capacity.');
+  }
+
+  try {
     const batch = writeBatch(db);
-    batch.set(doc(db, 'workshop_registrations', regId), {
+    batch.set(regRef, {
       workshopId: input.workshopId,
       workshopTitle: clamp(input.workshopTitle, 160),
       participantName: clamp(input.participantName, 120),
       university: clamp(input.university, 120),
-      email: clamp(input.email.toLowerCase(), 160),
+      email: clamp(authEmail.toLowerCase(), 160),
       refCode: cleanRef,
       registrarUid: uid,
       createdAt: serverTimestamp(),
     });
 
-    if (wsSnap.exists()) {
-      batch.update(wsRef, { regs: currentRegs + 1 });
-    }
+    batch.update(wsRef, { regs: currentRegs + 1 });
 
     if (cleanRef.length >= 3) {
       const ca = input.roster.find((r) => r.code.toUpperCase() === cleanRef);
-      const subId = safeId('sub');
+      const subId = `wsref_${input.workshopId}_${uid}`;
       batch.set(doc(db, 'submissions', subId), {
         caCode: cleanRef,
         caName: clamp(ca ? ca.name : 'External Referral', 120),

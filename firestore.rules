@@ -30,8 +30,12 @@ service cloud.firestore {
         && request.auth.token.email_verified == true;
     }
 
+    function emailToKey(email) {
+      return email.lower().replace('@', '_at_').replace('\\.', '_dot_').replace('\\+', '_plus_');
+    }
+
     function normalizedEmailKey() {
-      return request.auth.token.email.lower().replace('@', '_at_').replace('\\.', '_dot_').replace('\\+', '_plus_');
+      return emailToKey(request.auth.token.email);
     }
 
     // Tier 0A: Main Developer Root — STRICTLY locked to the two primary developer emails
@@ -151,6 +155,17 @@ service cloud.firestore {
       return !exists(/databases/$(database)/documents/settings/program)
         || !('recruitmentStatus' in get(/databases/$(database)/documents/settings/program).data)
         || isRoleOpenInMap(get(/databases/$(database)/documents/settings/program).data.recruitmentStatus, roleTitle);
+    }
+
+    function isValidSingleMetricIncrement(inc, ext) {
+      return inc.workshopRegs >= ext.workshopRegs && inc.workshopRegs <= ext.workshopRegs + 1
+        && inc.techLeads >= ext.techLeads && inc.techLeads <= ext.techLeads + 1
+        && inc.brandPosts >= ext.brandPosts && inc.brandPosts <= ext.brandPosts + 1
+        && inc.clubEvents >= ext.clubEvents && inc.clubEvents <= ext.clubEvents + 1
+        && ((inc.workshopRegs - ext.workshopRegs)
+          + (inc.techLeads - ext.techLeads)
+          + (inc.brandPosts - ext.brandPosts)
+          + (inc.clubEvents - ext.clubEvents)) == 1;
     }
 
     // ==================== VALIDATION BLUEPRINTS ====================
@@ -319,6 +334,7 @@ service cloud.firestore {
     // ==================== 2. ROLE ASSIGNMENTS (PII + RBAC MASTER) ====================
     // ONLY the 2 Main Developers can add/edit/revoke 'developer' assignments.
     // Neither Main Developer email key can be demoted or deleted.
+    // Document key MUST strictly match normalized incoming().email.
     // Developers can appoint/update/revoke Program Chair & Company CEO.
     // Chair & CEO can manage subordinate ExCom & CA roles only.
     match /role_assignments/{emailKey} {
@@ -327,6 +343,7 @@ service cloud.firestore {
       allow create: if isVerified()
         && isValidId(emailKey)
         && isValidRoleAssignment(incoming())
+        && emailKey == emailToKey(incoming().email)
         && (
           (isMainDeveloper() && incoming().role == 'developer') ||
           (isDeveloper() && !isMainDeveloperEmailKey(emailKey) && (isExecutiveRole(incoming().role) || isSubordinateRole(incoming().role))) ||
@@ -335,6 +352,7 @@ service cloud.firestore {
       allow update: if isVerified()
         && isValidId(emailKey)
         && isValidRoleAssignment(incoming())
+        && emailKey == emailToKey(incoming().email)
         && (
           (isMainDeveloper() && isMainDeveloperEmailKey(emailKey) && incoming().role == 'developer') ||
           (isMainDeveloper() && !isMainDeveloperEmailKey(emailKey)) ||
@@ -364,12 +382,13 @@ service cloud.firestore {
           && incoming().diff(existing()).affectedKeys().hasOnly(['workshopRegs', 'techLeads', 'brandPosts', 'clubEvents', 'updatedAt'])
           && incoming().code == existing().code
           && incoming().squad == existing().squad
+          && isValidSingleMetricIncrement(incoming(), existing())
         )
       );
       allow delete: if isVerified() && isValidId(ambassadorId) && isDeveloper();
     }
 
-    // ==================== 4. WORKSHOPS (PUBLIC CATALOG) ====================
+    // ==================== 4. WORKSHOPS (PUBLIC CATALOG + ATOMIC SEAT CAP) ====================
     match /workshops/{workshopId} {
       allow get: if isValidId(workshopId);
       allow list: if true;
@@ -377,12 +396,18 @@ service cloud.firestore {
       allow update: if isVerified() && isValidId(workshopId) && isValidWorkshop(incoming()) && incoming().createdAt == existing().createdAt && (
         isFullAccess() ||
         isSpecificLead('lead2') ||
-        (incoming().diff(existing()).affectedKeys().hasOnly(['regs']) && incoming().regs == existing().regs + 1)
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['regs'])
+          && incoming().regs == existing().regs + 1
+          && incoming().regs <= existing().seats
+          && !exists(/databases/$(database)/documents/workshop_registrations/$(workshopId + '_' + request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/workshop_registrations/$(workshopId + '_' + request.auth.uid))
+        )
       );
       allow delete: if isVerified() && isValidId(workshopId) && isDeveloper();
     }
 
-    // ==================== 5. WORKSHOP REGISTRATIONS (PRIVATE PII) ====================
+    // ==================== 5. WORKSHOP REGISTRATIONS (PRIVATE PII + 1 PER USER) ====================
     match /workshop_registrations/{regId} {
       allow get: if isVerified() && isValidId(regId) && (
         existing().registrarUid == request.auth.uid || isFullAccess() || isSecretary() || isSpecificLead('lead2')
@@ -393,14 +418,17 @@ service cloud.firestore {
       allow create: if isVerified()
         && isValidId(regId)
         && isValidWorkshopRegistration(incoming())
+        && regId == incoming().workshopId + '_' + request.auth.uid
         && incoming().registrarUid == request.auth.uid
+        && incoming().email.lower() == request.auth.token.email.lower()
         && incoming().createdAt == request.time
-        && exists(/databases/$(database)/documents/workshops/$(incoming().workshopId));
+        && exists(/databases/$(database)/documents/workshops/$(incoming().workshopId))
+        && get(/databases/$(database)/documents/workshops/$(incoming().workshopId)).data.regs < get(/databases/$(database)/documents/workshops/$(incoming().workshopId)).data.seats;
       allow update: if false;
       allow delete: if isVerified() && isValidId(regId) && isDeveloper();
     }
 
-    // ==================== 6. ACTIVITY SUBMISSIONS (KPI QUEUE) ====================
+    // ==================== 6. ACTIVITY SUBMISSIONS (KPI QUEUE + MEMBER/REFERRAL GATE) ====================
     match /submissions/{submissionId} {
       allow get: if isVerified() && isValidId(submissionId) && (
         existing().submitterUid == request.auth.uid || isFullAccess() || isSecretary() || isAssignedSquadLead(existing().squad)
@@ -413,7 +441,16 @@ service cloud.firestore {
         && isValidSubmission(incoming())
         && incoming().submitterUid == request.auth.uid
         && incoming().status == 'Pending'
-        && incoming().createdAt == request.time;
+        && incoming().createdAt == request.time
+        && (
+          isAnyAssignedMember() ||
+          (
+            incoming().type == 'Workshop Reg'
+            && submissionId.matches('^wsref_[a-zA-Z0-9_\\-]+$')
+            && !exists(/databases/$(database)/documents/workshop_registrations/$(submissionId.replace('^wsref_', '')))
+            && existsAfter(/databases/$(database)/documents/workshop_registrations/$(submissionId.replace('^wsref_', '')))
+          )
+        );
       allow update: if isVerified()
         && isValidId(submissionId)
         && isValidSubmission(incoming())
