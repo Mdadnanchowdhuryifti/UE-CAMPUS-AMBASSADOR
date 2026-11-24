@@ -21,6 +21,8 @@ interface WorkshopsAndVerifySectionProps {
     contact: string;
     type: string;
   }) => Promise<void>;
+  /** Which part to render: the Workshops section, the Verify section, or both (default, original one-page behaviour). */
+  part?: 'workshops' | 'verify' | 'both';
 }
 
 export function WorkshopsAndVerifySection({
@@ -31,6 +33,7 @@ export function WorkshopsAndVerifySection({
   onSelectWorkshop,
   onVerifyCertificate,
   onSubmitClubPitch,
+  part = 'both',
 }: WorkshopsAndVerifySectionProps) {
   const [certQuery, setCertQuery] = useState('');
   const [certLoading, setCertLoading] = useState(false);
@@ -89,6 +92,8 @@ export function WorkshopsAndVerifySection({
 
   return (
     <>
+      {part !== 'verify' && (
+        <>
       {/* SECTION 05: WORKSHOPS */}
       <section
         id="workshops"
@@ -171,7 +176,11 @@ export function WorkshopsAndVerifySection({
           </div>
         </div>
       </section>
+        </>
+      )}
 
+      {part !== 'workshops' && (
+        <>
       {/* SECTION 06: CERTIFICATE VERIFIER & CLUB COLLABORATION HUB */}
       <section id="verify" className="py-16 lg:py-20 bg-white dark:bg-[#15181E]/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -367,6 +376,8 @@ export function WorkshopsAndVerifySection({
           </div>
         </div>
       </section>
+        </>
+      )}
     </>
   );
 }

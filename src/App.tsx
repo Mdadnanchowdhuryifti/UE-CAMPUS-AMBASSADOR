@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import {
   collection,
@@ -94,15 +95,31 @@ import {
   WorkshopRegistration,
 } from './types';
 import { Header } from './components/Header';
-import { HeroSection } from './components/HeroSection';
-import { GovernanceSection } from './components/GovernanceSection';
-import { ExComAndSquadsSection } from './components/ExComAndSquadsSection';
-import { LeaderboardSection } from './components/LeaderboardSection';
-import { WorkshopsAndVerifySection } from './components/WorkshopsAndVerifySection';
 import { RoleDashboard } from './components/RoleDashboard';
-import { AdminPage } from './components/AdminPage';
-import { ProfilePage } from './components/ProfilePage';
-import { MembersPage } from './components/MembersPage';
+import { MobileBottomNav } from './components/AppNavigation';
+import { PageSkeleton } from './components/PageSkeleton';
+import { ScrollToTop } from './components/ScrollToTop';
+
+// Pages are lazy-loaded so each route ships as its own chunk.
+const HomePage = lazy(() => import('./pages/HomePage'));
+const ArchitecturePage = lazy(() => import('./pages/ArchitecturePage'));
+const ExComPage = lazy(() => import('./pages/ExComPage'));
+const SquadsPage = lazy(() => import('./pages/SquadsPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const WorkshopsPage = lazy(() => import('./pages/WorkshopsPage'));
+const VerifyPage = lazy(() => import('./pages/VerifyPage'));
+const DownloadPage = lazy(() => import('./pages/DownloadPage'));
+const SignInPage = lazy(() => import('./pages/SignInPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const AdminPage = lazy(() =>
+  import('./components/AdminPage').then((m) => ({ default: m.AdminPage }))
+);
+const ProfilePage = lazy(() =>
+  import('./components/ProfilePage').then((m) => ({ default: m.ProfilePage }))
+);
+const MembersPage = lazy(() =>
+  import('./components/MembersPage').then((m) => ({ default: m.MembersPage }))
+);
 import {
   AccountBlockedModal,
   MaintenanceScreen,
@@ -155,7 +172,6 @@ export default function App() {
   const [sheetSyncOpen, setSheetSyncOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
 
-  const [pathname, setPathname] = useState<string>(() => window.location.pathname || '/');
   const [systemConfig, setSystemConfig] = useState<SystemConfig>(DEFAULT_SYSTEM_CONFIG);
   const systemConfigRef = useRef<SystemConfig>(DEFAULT_SYSTEM_CONFIG);
   const currentUserRef = useRef<PortalUser | null>(null);
@@ -168,26 +184,14 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
-  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
-  const isProfileRoute = pathname === '/profile' || pathname.startsWith('/profile');
-  const isMembersRoute = pathname === '/members' || pathname.startsWith('/members');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminRoute =
+    location.pathname === '/admin' || location.pathname.startsWith('/admin/');
 
   const navigateTo = (nextPath: string) => {
-    const clean = nextPath.startsWith('/') ? nextPath : `/${nextPath}`;
-    if (`${window.location.pathname}${window.location.search}` !== clean) {
-      window.history.pushState({}, '', clean);
-    }
-    setPathname(clean);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate(nextPath);
   };
-
-  useEffect(() => {
-    const onPopState = () => {
-      setPathname(window.location.pathname || '/');
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, []);
 
   useEffect(() => {
     systemConfigRef.current = systemConfig;
@@ -1236,9 +1240,8 @@ export default function App() {
     (isFullAccessRole(currentUser.role) || currentUser.role === 'lead1');
 
   // ROUTE 1: Dedicated Developer-Only /admin Control Center
-  if (isAdminRoute) {
-    return (
-      <>
+  const adminElement = (
+    <>
         <AdminPage
           currentUser={currentUser}
           authLoading={authLoading}
@@ -1273,17 +1276,14 @@ export default function App() {
           notice={blockedNotice}
           onDismiss={() => setBlockedNotice(null)}
         />
-      </>
-    );
-  }
+    </>
+  );
 
   // ROUTE 1B: /profile — signed-in member profile (own or ?uid=<uid> for another member)
   // Rendered before the maintenance gate, like /admin, so members can always reach it.
-  if (isProfileRoute) {
-    return (
-      <>
+  const profileElement = (
+    <>
         <ProfilePage
-          key={pathname}
           currentUser={currentUser}
           authLoading={authLoading}
           onNavigateHome={() => navigateTo('/')}
@@ -1306,16 +1306,13 @@ export default function App() {
           notice={blockedNotice}
           onDismiss={() => setBlockedNotice(null)}
         />
-      </>
-    );
-  }
+    </>
+  );
 
   // ROUTE 1C: /members — Manage Members (Chair / Secretary / developer only; page enforces)
-  if (isMembersRoute) {
-    return (
-      <>
+  const membersElement = (
+    <>
         <MembersPage
-          key={pathname}
           currentUser={currentUser}
           authLoading={authLoading}
           portalData={portalData}
@@ -1338,14 +1335,12 @@ export default function App() {
           notice={blockedNotice}
           onDismiss={() => setBlockedNotice(null)}
         />
-      </>
-    );
-  }
+    </>
+  );
 
   // ROUTE 2: Maintenance Mode Gate (Everyone except role = developer sees Maintenance Page)
-  if (systemConfig.maintenanceMode && !isDeveloper) {
-    return (
-      <>
+  const maintenanceElement = (
+    <>
         <MaintenanceScreen
           config={systemConfig}
           signingIn={signingIn}
@@ -1367,12 +1362,11 @@ export default function App() {
           notice={blockedNotice}
           onDismiss={() => setBlockedNotice(null)}
         />
-      </>
-    );
-  }
+    </>
+  );
 
-  return (
-    <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100">
+  const publicLayout = (
+    <div className="min-h-screen pb-20 lg:pb-0 bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100">
       <SystemStatusBanner
         config={systemConfig}
         isDeveloper={isDeveloper}
@@ -1390,42 +1384,100 @@ export default function App() {
       />
 
       <main>
-        <HeroSection
-          db={portalData}
-          currentUser={currentUser}
-          onApply={(role) => handleApply(role)}
-          onOpenDashboard={() => handleOpenAuthOrDashboard('standard')}
-          onOpenExecutiveSignIn={() => handleOpenAuthOrDashboard('executive')}
-        />
-
-        <GovernanceSection
-          recruitmentStatus={portalData.recruitmentStatus}
-          onApply={(role) => handleApply(role)}
-        />
-
-        <ExComAndSquadsSection
-          db={portalData}
-          currentUser={currentUser}
-          onApply={handleApply}
-          onOpenPersonalPortal={() => handleOpenAuthOrDashboard('standard')}
-          onOpenExecutivePortal={() => handleOpenAuthOrDashboard('executive')}
-        />
-
-        <LeaderboardSection
-          db={portalData}
-          onOpenSheetSync={() => setSheetSyncOpen(true)}
-          onExportCSV={handleExportCSV}
-        />
-
-        <WorkshopsAndVerifySection
-          db={portalData}
-          currentUser={currentUser}
-          readOnlyLockdown={readOnlyLockdown}
-          onRequireSignIn={() => handleGoogleSignIn('standard')}
-          onSelectWorkshop={(ws) => setActiveWorkshop(ws)}
-          onVerifyCertificate={handleVerifyCertificate}
-          onSubmitClubPitch={handleSubmitClubPitch}
-        />
+        <Suspense fallback={<PageSkeleton />}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <HomePage
+                  db={portalData}
+                  currentUser={currentUser}
+                  onApply={handleApply}
+                  onOpenDashboard={() => handleOpenAuthOrDashboard('standard')}
+                  onOpenExecutiveSignIn={() => handleOpenAuthOrDashboard('executive')}
+                />
+              }
+            />
+            <Route
+              path="/architecture"
+              element={<ArchitecturePage db={portalData} onApply={handleApply} />}
+            />
+            <Route
+              path="/excom"
+              element={
+                <ExComPage
+                  db={portalData}
+                  currentUser={currentUser}
+                  onApply={handleApply}
+                  onOpenPersonalPortal={() => handleOpenAuthOrDashboard('standard')}
+                  onOpenExecutivePortal={() => handleOpenAuthOrDashboard('executive')}
+                />
+              }
+            />
+            <Route
+              path="/squads"
+              element={
+                <SquadsPage
+                  db={portalData}
+                  currentUser={currentUser}
+                  onApply={handleApply}
+                  onOpenPersonalPortal={() => handleOpenAuthOrDashboard('standard')}
+                  onOpenExecutivePortal={() => handleOpenAuthOrDashboard('executive')}
+                />
+              }
+            />
+            <Route
+              path="/leaderboard"
+              element={
+                <LeaderboardPage
+                  db={portalData}
+                  onOpenSheetSync={() => setSheetSyncOpen(true)}
+                  onExportCSV={handleExportCSV}
+                />
+              }
+            />
+            <Route
+              path="/workshops"
+              element={
+                <WorkshopsPage
+                  db={portalData}
+                  currentUser={currentUser}
+                  readOnlyLockdown={readOnlyLockdown}
+                  onRequireSignIn={() => handleGoogleSignIn('standard')}
+                  onSelectWorkshop={(ws) => setActiveWorkshop(ws)}
+                  onVerifyCertificate={handleVerifyCertificate}
+                  onSubmitClubPitch={handleSubmitClubPitch}
+                />
+              }
+            />
+            <Route
+              path="/verify"
+              element={
+                <VerifyPage
+                  db={portalData}
+                  currentUser={currentUser}
+                  readOnlyLockdown={readOnlyLockdown}
+                  onRequireSignIn={() => handleGoogleSignIn('standard')}
+                  onSelectWorkshop={(ws) => setActiveWorkshop(ws)}
+                  onVerifyCertificate={handleVerifyCertificate}
+                  onSubmitClubPitch={handleSubmitClubPitch}
+                />
+              }
+            />
+            <Route path="/download" element={<DownloadPage />} />
+            <Route
+              path="/signin"
+              element={
+                <SignInPage
+                  currentUser={currentUser}
+                  authLoading={authLoading}
+                  onOpenAuthOrDashboard={handleOpenAuthOrDashboard}
+                />
+              }
+            />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
       </main>
 
       {/* Quiet Footer with Direct App Download Button */}
@@ -1492,7 +1544,7 @@ export default function App() {
       </footer>
 
       {/* Bottom-Left Theme Toggle */}
-      <div className="fixed bottom-4 left-4 z-40">
+      <div className="fixed bottom-20 lg:bottom-4 left-4 z-40">
         <div
           role="group"
           aria-label="Color theme"
@@ -1529,7 +1581,7 @@ export default function App() {
       <OfflineIndicator />
 
       {/* Bottom-Right Playbook Guide Trigger */}
-      <div className="fixed bottom-4 right-4 z-40">
+      <div className="fixed bottom-20 lg:bottom-4 right-4 z-40">
         <button
           type="button"
           onClick={() => setGuideOpen((v) => !v)}
@@ -1771,6 +1823,43 @@ export default function App() {
         notice={blockedNotice}
         onDismiss={() => setBlockedNotice(null)}
       />
+
+      {/* Mobile bottom tab bar + Menu sheet */}
+      <MobileBottomNav currentUser={currentUser} />
     </div>
+  );
+
+  return (
+    <>
+      <ScrollToTop />
+      <Routes>
+        <Route
+          path="/admin"
+          element={
+            <Suspense fallback={<PageSkeleton />}>{adminElement}</Suspense>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <Suspense fallback={<PageSkeleton />}>{profileElement}</Suspense>
+          }
+        />
+        <Route
+          path="/members"
+          element={
+            <Suspense fallback={<PageSkeleton />}>{membersElement}</Suspense>
+          }
+        />
+        <Route
+          path="/*"
+          element={
+            systemConfig.maintenanceMode && !isDeveloper
+              ? maintenanceElement
+              : publicLayout
+          }
+        />
+      </Routes>
+    </>
   );
 }

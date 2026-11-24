@@ -36,6 +36,7 @@ import {
   UserProfile,
   UserRole,
 } from '../types';
+import { useSearchParams } from 'react-router-dom';
 import { ImageCropper } from './ImageCropper';
 
 interface ProfilePageProps {
@@ -54,13 +55,13 @@ const inputClass =
 const labelClass =
   'block text-[11px] font-mono font-semibold uppercase tracking-wide text-[#5A6270] dark:text-slate-400 mb-1.5';
 
-function parseTargetUid(currentUser: PortalUser | null): string | null {
-  try {
-    const fromQuery = new URLSearchParams(window.location.search).get('uid');
-    if (fromQuery && fromQuery.trim()) return fromQuery.trim();
-  } catch {
-    // ignore malformed query strings
-  }
+function parseTargetUid(
+  currentUser: PortalUser | null,
+  queryUid: string | null
+): string | null {
+  // With HashRouter the query string lives inside the hash, so it is read
+  // through react-router's useSearchParams instead of window.location.search.
+  if (queryUid && queryUid.trim()) return queryUid.trim();
   return currentUser?.uid ?? null;
 }
 
@@ -72,11 +73,11 @@ export function ProfilePage({
   onNotify,
   onSignIn,
 }: ProfilePageProps) {
+  const [searchParams] = useSearchParams();
+  const queryUid = searchParams.get('uid');
   const targetUid = useMemo(
-    () => parseTargetUid(currentUser),
-    // Recompute when the signed-in user changes; the query string is read live.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentUser?.uid]
+    () => parseTargetUid(currentUser, queryUid),
+    [currentUser, queryUid]
   );
   const isOwn = Boolean(currentUser && targetUid && currentUser.uid === targetUid);
 

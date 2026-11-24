@@ -19,6 +19,8 @@ interface ExComAndSquadsSectionProps {
   onApply: (role: string, squad?: SquadName) => void;
   onOpenPersonalPortal: () => void;
   onOpenExecutivePortal: () => void;
+  /** Which part to render: the ExCom section, the Squads section, or both (default, original one-page behaviour). */
+  part?: 'excom' | 'squads' | 'both';
 }
 
 export function ExComAndSquadsSection({
@@ -27,6 +29,7 @@ export function ExComAndSquadsSection({
   onApply,
   onOpenPersonalPortal,
   onOpenExecutivePortal,
+  part = 'both',
 }: ExComAndSquadsSectionProps) {
   const [activeSquad, setActiveSquad] = useState<SquadName>('Squad A');
 
@@ -44,6 +47,8 @@ export function ExComAndSquadsSection({
 
   return (
     <>
+      {part !== 'squads' && (
+        <>
       {/* SECTION 02: EXECUTIVE COMMITTEE */}
       <section
         id="excom"
@@ -88,8 +93,8 @@ export function ExComAndSquadsSection({
 
           {/* Tier 1 + Tier 2 Leadership Row */}
           <div className="grid md:grid-cols-2 gap-6 mb-10">
-            {/* Program Chair & Company CEO */}
-            <div className="bg-[#F4F5F7] dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start">
+            {/* Program Chair & Company CEO — on the dedicated ExCom page the list starts at Tier 2, so this Tier 1 card is ordered after it (nothing is removed). */}
+            <div className={`bg-[#F4F5F7] dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start ${part === 'excom' ? 'order-2' : ''}`}>
               <div className="w-14 h-14 rounded-lg bg-[#111318] text-white flex items-center justify-center font-display font-extrabold text-lg shrink-0">
                 EX
               </div>
@@ -142,8 +147,8 @@ export function ExComAndSquadsSection({
               </div>
             </div>
 
-            {/* Program Secretary */}
-            <div className="bg-[#F4F5F7] dark:bg-[#15181E] border border-[#B51B27]/40 rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start">
+            {/* Program Secretary — Tier 2 leads the list on the dedicated ExCom page. */}
+            <div className={`bg-[#F4F5F7] dark:bg-[#15181E] border border-[#B51B27]/40 rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start ${part === 'excom' ? 'order-1' : ''}`}>
               <div className="w-14 h-14 rounded-lg bg-[#B51B27] text-white flex items-center justify-center font-display font-extrabold text-lg shrink-0">
                 GS
               </div>
@@ -276,7 +281,11 @@ export function ExComAndSquadsSection({
           </div>
         </div>
       </section>
+        </>
+      )}
 
+      {part !== 'excom' && (
+        <>
       {/* SECTION 03: CAMPUS SQUADS A-E & WEEKLY OPERATING CADENCE */}
       <section
         id="squads"
@@ -473,6 +482,8 @@ export function ExComAndSquadsSection({
           </div>
         </div>
       </section>
+        </>
+      )}
     </>
   );
 }
