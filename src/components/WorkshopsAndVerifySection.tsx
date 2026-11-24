@@ -11,6 +11,7 @@ import { CertificateRecord, PortalDB, PortalUser, Workshop } from '../types';
 interface WorkshopsAndVerifySectionProps {
   db: PortalDB;
   currentUser: PortalUser | null;
+  readOnlyLockdown?: boolean;
   onRequireSignIn: () => Promise<void>;
   onSelectWorkshop: (ws: Workshop) => void;
   onVerifyCertificate: (id: string) => Promise<CertificateRecord | null>;
@@ -25,6 +26,7 @@ interface WorkshopsAndVerifySectionProps {
 export function WorkshopsAndVerifySection({
   db,
   currentUser,
+  readOnlyLockdown = false,
   onRequireSignIn,
   onSelectWorkshop,
   onVerifyCertificate,
@@ -62,6 +64,7 @@ export function WorkshopsAndVerifySection({
 
   const handleClubSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (readOnlyLockdown) return;
     if (!currentUser) {
       await onRequireSignIn();
       return;
@@ -151,10 +154,15 @@ export function WorkshopsAndVerifySection({
 
                   <button
                     type="button"
+                    disabled={readOnlyLockdown}
                     onClick={() => onSelectWorkshop(ws)}
-                    className="mt-6 w-full inline-flex items-center justify-center gap-1.5 bg-[#111318] dark:bg-[#B51B27] text-white text-xs font-semibold py-2.5 px-4 rounded-lg hover:bg-[#B51B27] dark:hover:bg-[#92141E] transition-colors cursor-pointer"
+                    className="mt-6 w-full inline-flex items-center justify-center gap-1.5 bg-[#111318] dark:bg-[#B51B27] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold py-2.5 px-4 rounded-lg hover:bg-[#B51B27] dark:hover:bg-[#92141E] transition-colors cursor-pointer"
                   >
-                    <span>Register with Referral Tracking</span>
+                    <span>
+                      {readOnlyLockdown
+                        ? 'Registration Paused (Lockdown)'
+                        : 'Register with Referral Tracking'}
+                    </span>
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </button>
                 </article>
@@ -330,10 +338,15 @@ export function WorkshopsAndVerifySection({
 
                 <button
                   type="submit"
-                  disabled={submittingClub}
-                  className="w-full inline-flex items-center justify-center gap-1.5 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white text-xs font-semibold py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
+                  disabled={submittingClub || readOnlyLockdown}
+                  className="w-full inline-flex items-center justify-center gap-1.5 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
                 >
-                  {currentUser ? (
+                  {readOnlyLockdown ? (
+                    <>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Submissions Paused (Emergency Lockdown)</span>
+                    </>
+                  ) : currentUser ? (
                     <>
                       <span>
                         {submittingClub

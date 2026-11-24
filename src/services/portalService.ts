@@ -189,10 +189,24 @@ export async function seedInitialFirestoreData(): Promise<boolean> {
       updatedAt: serverTimestamp(),
     });
 
-    // 2. Root Developer Role Assignment
-    const devKey = normalizeEmailKey(email);
+    // 1B. System Config (Maintenance Mode & Emergency Lockdown)
     const rawDevName = (auth.currentUser?.displayName || '').trim();
     const safeDevName = rawDevName.length >= 2 ? clamp(rawDevName, 120) : 'Platform Developer';
+    batch.set(doc(db, 'config', 'system'), {
+      maintenanceMode: false,
+      maintenanceMessage:
+        'The Ulterior Engineering Campus Ambassador Portal is undergoing scheduled maintenance. Please check back shortly.',
+      emergencyLockdown: false,
+      lockdownMessage:
+        'Emergency Read-Only Lockdown is active. Sign-ins, applications, workshop registrations, uploads, and all write operations are temporarily suspended.',
+      lockdownEpoch: 0,
+      updatedByName: safeDevName,
+      updatedByUid: uid,
+      updatedAt: serverTimestamp(),
+    });
+
+    // 2. Root Developer Role Assignment
+    const devKey = normalizeEmailKey(email);
     batch.set(doc(db, 'role_assignments', devKey), {
       email: email.toLowerCase(),
       displayName: safeDevName,

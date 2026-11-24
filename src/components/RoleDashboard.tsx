@@ -55,6 +55,7 @@ interface RoleDashboardProps {
   db: PortalDB;
   user: PortalUser;
   onClose: () => void;
+  onOpenAdminPage: () => void;
   onLogout: () => Promise<void>;
   onApplyForRole: () => void;
   onSeedCloudDB: () => Promise<void>;
@@ -100,6 +101,7 @@ export function RoleDashboard({
   db,
   user,
   onClose,
+  onOpenAdminPage,
   onLogout,
   onApplyForRole,
   onSeedCloudDB,
@@ -644,6 +646,14 @@ export function RoleDashboard({
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={onOpenAdminPage}
+                  className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold px-3.5 py-2 rounded-lg bg-white text-[#111318] hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  <Terminal className="w-3.5 h-3.5 text-[#B51B27]" />
+                  <span>Open /admin</span>
+                </button>
                 <button
                   type="button"
                   onClick={onExportJSON}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, Terminal, X } from 'lucide-react';
 import { Ambassador, PortalUser } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -9,6 +9,7 @@ interface HeaderProps {
   currentUser: PortalUser | null;
   authLoading: boolean;
   onOpenAuthOrDashboard: () => void;
+  onOpenAdminPage: () => void;
 }
 
 export function Header({
@@ -17,6 +18,7 @@ export function Header({
   currentUser,
   authLoading,
   onOpenAuthOrDashboard,
+  onOpenAdminPage,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -113,8 +115,18 @@ export function Header({
             ))}
           </nav>
 
-          {/* Zone 3: 1 Primary Action + Mobile Drawer Toggle */}
+          {/* Zone 3: 1 Primary Action (+ Developer /admin shortcut) + Mobile Drawer Toggle */}
           <div className="flex items-center gap-2 shrink-0">
+            {currentUser?.role === 'developer' && (
+              <button
+                type="button"
+                onClick={onOpenAdminPage}
+                className="inline-flex items-center gap-1.5 bg-[#111318] hover:bg-[#B51B27] dark:bg-slate-800 dark:hover:bg-[#B51B27] text-white text-xs font-mono font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <Terminal className="w-3.5 h-3.5 text-[#B51B27] group-hover:text-white" />
+                <span>/admin</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onOpenAuthOrDashboard}

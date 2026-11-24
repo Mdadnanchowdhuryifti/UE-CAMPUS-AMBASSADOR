@@ -54,8 +54,26 @@ service cloud.firestore {
       ];
     }
 
+    function isSecondaryDeveloperEmailKey(emailKey) {
+      return exists(/databases/$(database)/documents/role_assignments/$(emailKey))
+        && get(/databases/$(database)/documents/role_assignments/$(emailKey)).data.role == 'developer';
+    }
+
+    function isUserBlocked() {
+      return isVerified()
+        && !isMainDeveloper()
+        && exists(/databases/$(database)/documents/user_moderation/$(normalizedEmailKey()))
+        && get(/databases/$(database)/documents/user_moderation/$(normalizedEmailKey())).data.status in ['suspended', 'banned'];
+    }
+
+    function isSystemLockedDown() {
+      return exists(/databases/$(database)/documents/config/system)
+        && get(/databases/$(database)/documents/config/system).data.emergencyLockdown == true;
+    }
+
     function hasRoleDoc() {
       return isVerified()
+        && !isUserBlocked()
         && exists(/databases/$(database)/documents/role_assignments/$(normalizedEmailKey()));
     }
 
@@ -63,9 +81,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/role_assignments/$(normalizedEmailKey())).data;
     }
 
-    // Tier 0: Platform Developer (Main Developers + secondary Developers added strictly by Main Developers)
+    // Tier 0: Platform Developer (Main Developers + non-blocked secondary Developers)
     function isDeveloper() {
       return isMainDeveloper() || (hasRoleDoc() && roleDoc().role == 'developer');
+    }
+
+    // Global Write Gate: Developers bypass Emergency Lockdown; all others are blocked during Lockdown or Suspension/Ban
+    function isWritePermitted() {
+      return isDeveloper() || (!isSystemLockedDown() && !isUserBlocked());
     }
 
     // Tier 1: Program Chair & Company CEO (Executive Parity — Appointed exclusively by Developers)
@@ -169,6 +192,70 @@ service cloud.firestore {
     }
 
     // ==================== VALIDATION BLUEPRINTS ====================
+    function isValidSystemConfig(data) {
+      return data.keys().hasAll(['maintenanceMode', 'maintenanceMessage', 'emergencyLockdown', 'lockdownMessage', 'lockdownEpoch', 'updatedByName', 'updatedByUid', 'updatedAt'])
+        && data.keys().hasOnly(['maintenanceMode', 'maintenanceMessage', 'emergencyLockdown', 'lockdownMessage', 'lockdownEpoch', 'updatedByName', 'updatedByUid', 'updatedAt'])
+        && data.maintenanceMode is bool
+        && data.maintenanceMessage is string && data.maintenanceMessage.size() >= 5 && data.maintenanceMessage.size() <= 500
+        && data.emergencyLockdown is bool
+        && data.lockdownMessage is string && data.lockdownMessage.size() >= 5 && data.lockdownMessage.size() <= 500
+        && data.lockdownEpoch is number && data.lockdownEpoch >= 0
+        && data.updatedByName is string && data.updatedByName.size() >= 2 && data.updatedByName.size() <= 120
+        && data.updatedByUid is string && data.updatedByUid.size() >= 4 && data.updatedByUid.size() <= 128
+        && data.updatedAt == request.time;
+    }
+
+    function isValidUserModeration(data) {
+      return data.keys().hasAll(['email', 'displayName', 'status', 'reason', 'updatedByName', 'updatedByUid', 'updatedAt'])
+        && data.keys().hasOnly(['email', 'displayName', 'status', 'reason', 'updatedByName', 'updatedByUid', 'updatedAt'])
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && data.displayName is string && data.displayName.size() <= 120
+        && data.status is string && data.status in ['active', 'suspended', 'banned']
+        && data.reason is string && data.reason.size() >= 3 && data.reason.size() <= 500
+        && data.updatedByName is string && data.updatedByName.size() >= 2 && data.updatedByName.size() <= 120
+        && data.updatedByUid is string && data.updatedByUid.size() >= 4 && data.updatedByUid.size() <= 128
+        && data.updatedAt == request.time;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['actorUid', 'actorEmail', 'actorName', 'action', 'target', 'details', 'createdAt'])
+        && data.keys().hasOnly(['actorUid', 'actorEmail', 'actorName', 'action', 'target', 'details', 'createdAt'])
+        && data.actorUid is string && data.actorUid.size() >= 4 && data.actorUid.size() <= 128
+        && data.actorEmail is string && data.actorEmail.size() >= 5 && data.actorEmail.size() <= 160
+        && data.actorName is string && data.actorName.size() >= 2 && data.actorName.size() <= 120
+        && data.action is string && data.action in [
+          'MAINTENANCE_ENABLED',
+          'MAINTENANCE_DISABLED',
+          'LOCKDOWN_ENABLED',
+          'LOCKDOWN_DISABLED',
+          'USER_SUSPENDED',
+          'USER_BANNED',
+          'USER_RESTORED',
+          'ROLE_REVOKED',
+          'ROLE_ASSIGNED',
+          'ERROR_LOG_RESOLVED',
+          'ERROR_LOG_DELETED',
+          'SYSTEM_CONFIG_UPDATED'
+        ]
+        && data.target is string && data.target.size() >= 1 && data.target.size() <= 160
+        && data.details is string && data.details.size() >= 2 && data.details.size() <= 1000
+        && data.createdAt is timestamp;
+    }
+
+    function isValidErrorLog(data) {
+      return data.keys().hasAll(['source', 'severity', 'message', 'path', 'operation', 'userUid', 'userEmail', 'resolved', 'createdAt'])
+        && data.keys().hasOnly(['source', 'severity', 'message', 'path', 'operation', 'userUid', 'userEmail', 'resolved', 'createdAt'])
+        && data.source is string && data.source in ['firestore', 'runtime', 'unhandled_rejection', 'auth', 'ui_boundary', 'admin']
+        && data.severity is string && data.severity in ['error', 'warning', 'critical']
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 1000
+        && data.path is string && data.path.size() <= 200
+        && data.operation is string && data.operation.size() <= 40
+        && data.userUid is string && data.userUid.size() >= 4 && data.userUid.size() <= 128
+        && data.userEmail is string && data.userEmail.size() <= 160
+        && data.resolved is bool
+        && data.createdAt is timestamp;
+    }
+
     function isValidProgramSettings(data) {
       return data.keys().hasAll(['workshopReg', 'techLead', 'brandPost', 'clubEvent', 'certThreshold', 'secretaryName', 'updatedAt'])
         && data.keys().hasOnly(['workshopReg', 'techLead', 'brandPost', 'clubEvent', 'certThreshold', 'secretaryName', 'chairName', 'ceoName', 'recruitmentStatus', 'updatedAt'])
@@ -317,11 +404,96 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    // ==================== 0A. SYSTEM CONFIG (MAINTENANCE & EMERGENCY LOCKDOWN) ====================
+    // Publicly readable (zero PII) so visitors see Maintenance / Lockdown immediately.
+    // Strictly writable by role = developer ONLY.
+    match /config/{configId} {
+      allow get: if isValidId(configId) && configId == 'system';
+      allow list: if false;
+      allow create: if isVerified()
+        && isValidId(configId)
+        && configId == 'system'
+        && isValidSystemConfig(incoming())
+        && incoming().updatedByUid == request.auth.uid
+        && isDeveloper();
+      allow update: if isVerified()
+        && isValidId(configId)
+        && configId == 'system'
+        && isValidSystemConfig(incoming())
+        && incoming().updatedByUid == request.auth.uid
+        && isDeveloper();
+      allow delete: if false;
+    }
+
+    // ==================== 0B. USER MODERATION (SUSPEND / BAN REGISTRY) ====================
+    // Affected user can read own status (for real-time forced sign-out & notice); Developers can manage all.
+    // Main Developer accounts can NEVER be suspended or banned.
+    match /user_moderation/{emailKey} {
+      allow get: if isVerified() && isValidId(emailKey) && (emailKey == normalizedEmailKey() || isDeveloper());
+      allow list: if isVerified() && isDeveloper();
+      allow create: if isVerified()
+        && isValidId(emailKey)
+        && isValidUserModeration(incoming())
+        && emailKey == emailToKey(incoming().email)
+        && incoming().updatedByUid == request.auth.uid
+        && !isMainDeveloperEmailKey(emailKey)
+        && (isMainDeveloper() || (isDeveloper() && !isSecondaryDeveloperEmailKey(emailKey)));
+      allow update: if isVerified()
+        && isValidId(emailKey)
+        && isValidUserModeration(incoming())
+        && emailKey == emailToKey(incoming().email)
+        && incoming().updatedByUid == request.auth.uid
+        && !isMainDeveloperEmailKey(emailKey)
+        && (isMainDeveloper() || (isDeveloper() && !isSecondaryDeveloperEmailKey(emailKey)));
+      allow delete: if isVerified()
+        && isValidId(emailKey)
+        && !isMainDeveloperEmailKey(emailKey)
+        && (isMainDeveloper() || (isDeveloper() && !isSecondaryDeveloperEmailKey(emailKey)));
+    }
+
+    // ==================== 0C. IMMUTABLE DEVELOPER AUDIT LOGS ====================
+    match /audit_logs/{logId} {
+      allow get: if isVerified() && isValidId(logId) && isDeveloper();
+      allow list: if isVerified() && isDeveloper();
+      allow create: if isVerified()
+        && isValidId(logId)
+        && isValidAuditLog(incoming())
+        && incoming().actorUid == request.auth.uid
+        && incoming().actorEmail.lower() == request.auth.token.email.lower()
+        && incoming().createdAt == request.time
+        && isDeveloper();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ==================== 0D. SYSTEM ERROR LOGS ====================
+    match /error_logs/{errorId} {
+      allow get: if isVerified() && isValidId(errorId) && isDeveloper();
+      allow list: if isVerified() && isDeveloper();
+      allow create: if isVerified()
+        && isValidId(errorId)
+        && isValidErrorLog(incoming())
+        && incoming().userUid == request.auth.uid
+        && incoming().userEmail.lower() == request.auth.token.email.lower()
+        && incoming().resolved == false
+        && incoming().createdAt == request.time
+        && isWritePermitted();
+      allow update: if isVerified()
+        && isValidId(errorId)
+        && isValidErrorLog(incoming())
+        && incoming().userUid == existing().userUid
+        && incoming().userEmail == existing().userEmail
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['resolved'])
+        && isDeveloper();
+      allow delete: if isVerified() && isValidId(errorId) && isDeveloper();
+    }
+
     // ==================== 1. PROGRAM SETTINGS ====================
     match /settings/{settingId} {
       allow get: if isValidId(settingId);
       allow create: if isVerified() && isValidId(settingId) && settingId == 'program' && isValidProgramSettings(incoming()) && isDeveloper();
-      allow update: if isVerified() && isValidId(settingId) && settingId == 'program' && isValidProgramSettings(incoming()) && (
+      allow update: if isVerified() && isValidId(settingId) && settingId == 'program' && isValidProgramSettings(incoming()) && isWritePermitted() && (
         isDeveloper() ||
         (
           isChairOrCeo()
@@ -332,11 +504,6 @@ service cloud.firestore {
     }
 
     // ==================== 2. ROLE ASSIGNMENTS (PII + RBAC MASTER) ====================
-    // ONLY the 2 Main Developers can add/edit/revoke 'developer' assignments.
-    // Neither Main Developer email key can be demoted or deleted.
-    // Document key MUST strictly match normalized incoming().email.
-    // Developers can appoint/update/revoke Program Chair & Company CEO.
-    // Chair & CEO can manage subordinate ExCom & CA roles only.
     match /role_assignments/{emailKey} {
       allow get: if isVerified() && isValidId(emailKey) && (emailKey == normalizedEmailKey() || isFullAccess());
       allow list: if isVerified() && isFullAccess();
@@ -344,6 +511,7 @@ service cloud.firestore {
         && isValidId(emailKey)
         && isValidRoleAssignment(incoming())
         && emailKey == emailToKey(incoming().email)
+        && isWritePermitted()
         && (
           (isMainDeveloper() && incoming().role == 'developer') ||
           (isDeveloper() && !isMainDeveloperEmailKey(emailKey) && (isExecutiveRole(incoming().role) || isSubordinateRole(incoming().role))) ||
@@ -353,6 +521,7 @@ service cloud.firestore {
         && isValidId(emailKey)
         && isValidRoleAssignment(incoming())
         && emailKey == emailToKey(incoming().email)
+        && isWritePermitted()
         && (
           (isMainDeveloper() && isMainDeveloperEmailKey(emailKey) && incoming().role == 'developer') ||
           (isMainDeveloper() && !isMainDeveloperEmailKey(emailKey)) ||
@@ -362,6 +531,7 @@ service cloud.firestore {
       allow delete: if isVerified()
         && isValidId(emailKey)
         && !isMainDeveloperEmailKey(emailKey)
+        && isWritePermitted()
         && (
           isMainDeveloper() ||
           (isDeveloper() && existing().role != 'developer') ||
@@ -373,8 +543,8 @@ service cloud.firestore {
     match /ambassadors/{ambassadorId} {
       allow get: if isValidId(ambassadorId);
       allow list: if true;
-      allow create: if isVerified() && isValidId(ambassadorId) && isValidAmbassador(incoming()) && (isFullAccess() || isSpecificLead('lead1'));
-      allow update: if isVerified() && isValidId(ambassadorId) && isValidAmbassador(incoming()) && (
+      allow create: if isVerified() && isValidId(ambassadorId) && isValidAmbassador(incoming()) && isWritePermitted() && (isFullAccess() || isSpecificLead('lead1'));
+      allow update: if isVerified() && isValidId(ambassadorId) && isValidAmbassador(incoming()) && isWritePermitted() && (
         isFullAccess() ||
         (isSpecificLead('lead1') && incoming().code == existing().code) ||
         (
@@ -392,8 +562,8 @@ service cloud.firestore {
     match /workshops/{workshopId} {
       allow get: if isValidId(workshopId);
       allow list: if true;
-      allow create: if isVerified() && isValidId(workshopId) && isValidWorkshop(incoming()) && incoming().createdAt == request.time && (isFullAccess() || isSpecificLead('lead2'));
-      allow update: if isVerified() && isValidId(workshopId) && isValidWorkshop(incoming()) && incoming().createdAt == existing().createdAt && (
+      allow create: if isVerified() && isValidId(workshopId) && isValidWorkshop(incoming()) && incoming().createdAt == request.time && isWritePermitted() && (isFullAccess() || isSpecificLead('lead2'));
+      allow update: if isVerified() && isValidId(workshopId) && isValidWorkshop(incoming()) && incoming().createdAt == existing().createdAt && isWritePermitted() && (
         isFullAccess() ||
         isSpecificLead('lead2') ||
         (
@@ -422,6 +592,7 @@ service cloud.firestore {
         && incoming().registrarUid == request.auth.uid
         && incoming().email.lower() == request.auth.token.email.lower()
         && incoming().createdAt == request.time
+        && isWritePermitted()
         && exists(/databases/$(database)/documents/workshops/$(incoming().workshopId))
         && get(/databases/$(database)/documents/workshops/$(incoming().workshopId)).data.regs < get(/databases/$(database)/documents/workshops/$(incoming().workshopId)).data.seats;
       allow update: if false;
@@ -442,6 +613,7 @@ service cloud.firestore {
         && incoming().submitterUid == request.auth.uid
         && incoming().status == 'Pending'
         && incoming().createdAt == request.time
+        && isWritePermitted()
         && (
           isAnyAssignedMember() ||
           (
@@ -456,6 +628,7 @@ service cloud.firestore {
         && isValidSubmission(incoming())
         && incoming().submitterUid == existing().submitterUid
         && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
         && (
           isFullAccess() ||
           (
@@ -481,12 +654,14 @@ service cloud.firestore {
         && incoming().submitterUid == request.auth.uid
         && (incoming().stage == 'New' || isFullAccess())
         && incoming().createdAt == request.time
+        && isWritePermitted()
         && isAnyAssignedMember();
       allow update: if isVerified()
         && isValidId(ticketId)
         && isValidTechLead(incoming())
         && incoming().submitterUid == existing().submitterUid
         && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
         && (
           isFullAccess() ||
           (
@@ -506,14 +681,16 @@ service cloud.firestore {
         && isValidCampaignKit(incoming())
         && incoming().createdByUid == request.auth.uid
         && incoming().createdAt == request.time
+        && isWritePermitted()
         && (isFullAccess() || isSecretary() || isSpecificLead('lead4'));
       allow update: if isVerified()
         && isValidId(kitId)
         && isValidCampaignKit(incoming())
         && incoming().createdByUid == existing().createdByUid
         && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
         && (isFullAccess() || isSecretary() || isSpecificLead('lead4'));
-      allow delete: if isVerified() && isValidId(kitId) && (isFullAccess() || isSpecificLead('lead4'));
+      allow delete: if isVerified() && isValidId(kitId) && isWritePermitted() && (isFullAccess() || isSpecificLead('lead4'));
     }
 
     // ==================== 9. RECRUITMENT APPLICATIONS (PRIVATE PII + RECRUITMENT LOCK) ====================
@@ -531,12 +708,14 @@ service cloud.firestore {
         && incoming().email.lower() == request.auth.token.email.lower()
         && incoming().status == 'Pending'
         && incoming().createdAt == request.time
+        && isWritePermitted()
         && isRecruitmentOpenForRole(incoming().role);
       allow update: if isVerified()
         && isValidId(applicationId)
         && isValidApplication(incoming())
         && incoming().applicantUid == existing().applicantUid
         && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
         && (
           isFullAccess() ||
           (
@@ -556,11 +735,13 @@ service cloud.firestore {
         && isValidId(certificateId)
         && isValidCertificate(incoming())
         && incoming().createdAt == request.time
+        && isWritePermitted()
         && isFullAccess();
       allow update: if isVerified()
         && isValidId(certificateId)
         && isValidCertificate(incoming())
         && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
         && isFullAccess();
       allow delete: if isVerified() && isValidId(certificateId) && isDeveloper();
     }
@@ -578,12 +759,14 @@ service cloud.firestore {
         && isValidClubPitch(incoming())
         && incoming().submitterUid == request.auth.uid
         && incoming().status == 'New'
-        && incoming().createdAt == request.time;
+        && incoming().createdAt == request.time
+        && isWritePermitted();
       allow update: if isVerified()
         && isValidId(pitchId)
         && isValidClubPitch(incoming())
         && incoming().submitterUid == existing().submitterUid
         && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
         && (
           isFullAccess() ||
           (

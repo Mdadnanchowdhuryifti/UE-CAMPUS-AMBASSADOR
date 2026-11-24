@@ -219,3 +219,82 @@ export interface PortalUser {
   caCode: string;
   campus: string;
 }
+
+export interface SystemConfig {
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  emergencyLockdown: boolean;
+  lockdownMessage: string;
+  lockdownEpoch: number;
+  updatedByName: string;
+  updatedByUid: string;
+  updatedAt?: Date | null;
+}
+
+export type UserModerationStatus = 'active' | 'suspended' | 'banned';
+
+export interface UserModerationRecord {
+  id: string; // normalized email key
+  email: string;
+  displayName: string;
+  status: UserModerationStatus;
+  reason: string;
+  updatedByName: string;
+  updatedByUid: string;
+  updatedAt?: Date | null;
+}
+
+export type AdminAuditAction =
+  | 'MAINTENANCE_ENABLED'
+  | 'MAINTENANCE_DISABLED'
+  | 'LOCKDOWN_ENABLED'
+  | 'LOCKDOWN_DISABLED'
+  | 'USER_SUSPENDED'
+  | 'USER_BANNED'
+  | 'USER_RESTORED'
+  | 'ROLE_REVOKED'
+  | 'ROLE_ASSIGNED'
+  | 'ERROR_LOG_RESOLVED'
+  | 'ERROR_LOG_DELETED'
+  | 'SYSTEM_CONFIG_UPDATED';
+
+export interface AdminAuditLog {
+  id: string;
+  actorUid: string;
+  actorEmail: string;
+  actorName: string;
+  action: AdminAuditAction;
+  target: string;
+  details: string;
+  createdAt: Date | null;
+}
+
+export type SystemErrorSource =
+  | 'firestore'
+  | 'runtime'
+  | 'unhandled_rejection'
+  | 'auth'
+  | 'ui_boundary'
+  | 'admin';
+
+export type SystemErrorSeverity = 'error' | 'warning' | 'critical';
+
+export interface SystemErrorLog {
+  id: string;
+  source: SystemErrorSource;
+  severity: SystemErrorSeverity;
+  message: string;
+  path: string;
+  operation: string;
+  userUid: string;
+  userEmail: string;
+  resolved: boolean;
+  createdAt: Date | null;
+}
+
+export interface BlockedSessionNotice {
+  type: 'suspended' | 'banned' | 'lockdown';
+  title: string;
+  reason: string;
+}
+

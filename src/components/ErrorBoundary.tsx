@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { logSystemError } from '../services/adminService';
 
 interface Props {
   children: ReactNode;
@@ -24,6 +25,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Portal ErrorBoundary caught:', error, info);
+    void logSystemError({
+      source: 'ui_boundary',
+      severity: 'critical',
+      message: error.message || 'Unhandled React rendering error',
+      path: window.location.pathname || '/',
+      operation: 'render',
+    });
   }
 
   render() {

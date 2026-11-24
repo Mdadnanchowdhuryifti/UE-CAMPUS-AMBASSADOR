@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from 'firebase/firestore';
 import { BookOpen, Moon, Sun } from 'lucide-react';
 import {
   auth,
@@ -8,8 +16,18 @@ import {
   googleProvider,
   handleFirestoreError,
   isMainDeveloperEmail,
+  normalizeEmailKey,
   OperationType,
+  registerFirestoreErrorObserver,
 } from './lib/firebase';
+import {
+  DEFAULT_SYSTEM_CONFIG,
+  fetchUserModerationStatus,
+  logSystemError,
+  revokeUserRoleWithAudit,
+  timestampToDate,
+  writeAdminAuditLog,
+} from './services/adminService';
 import {
   addOrUpdateAmbassador,
   approveApplicationAndOnboard,
@@ -45,8 +63,11 @@ import {
 import { calcPoints, DEFAULT_DB, SQUADS_META } from './data/playbook';
 import {
   ActivitySubmission,
+  AdminAuditAction,
+  AdminAuditLog,
   Ambassador,
   AuthSignInMode,
+  BlockedSessionNotice,
   CampaignKit,
   CertificateRecord,
   ClubPitch,
@@ -60,8 +81,14 @@ import {
   RoleAssignment,
   SquadName,
   SubmissionType,
+  SystemConfig,
+  SystemErrorLog,
+  SystemErrorSeverity,
+  SystemErrorSource,
   TechLeadTicket,
   TechPipelineStage,
+  UserModerationRecord,
+  UserModerationStatus,
   UserRole,
   Workshop,
   WorkshopRegistration,
@@ -73,6 +100,12 @@ import { ExComAndSquadsSection } from './components/ExComAndSquadsSection';
 import { LeaderboardSection } from './components/LeaderboardSection';
 import { WorkshopsAndVerifySection } from './components/WorkshopsAndVerifySection';
 import { RoleDashboard } from './components/RoleDashboard';
+import { AdminPage } from './components/AdminPage';
+import {
+  AccountBlockedModal,
+  MaintenanceScreen,
+  SystemStatusBanner,
+} from './components/MaintenanceScreen';
 import { OfflineIndicator, PWAInstallButton } from './components/PWAInstallButton';
 import {
   ApplyModal,
@@ -120,8 +153,100 @@ export default function App() {
   const [sheetSyncOpen, setSheetSyncOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
 
+  const [pathname, setPathname] = useState<string>(() => window.location.pathname || '/');
+  const [systemConfig, setSystemConfig] = useState<SystemConfig>(DEFAULT_SYSTEM_CONFIG);
+  const systemConfigRef = useRef<SystemConfig>(DEFAULT_SYSTEM_CONFIG);
+  const currentUserRef = useRef<PortalUser | null>(null);
+
+  const [userModerations, setUserModerations] = useState<UserModerationRecord[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
+  const [errorLogs, setErrorLogs] = useState<SystemErrorLog[]>([]);
+  const [blockedNotice, setBlockedNotice] = useState<BlockedSessionNotice | null>(null);
+
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+
+  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+
+  const navigateTo = (nextPath: string) => {
+    const clean = nextPath.startsWith('/') ? nextPath : `/${nextPath}`;
+    if (window.location.pathname !== clean) {
+      window.history.pushState({}, '', clean);
+    }
+    setPathname(clean);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    const onPopState = () => {
+      setPathname(window.location.pathname || '/');
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    systemConfigRef.current = systemConfig;
+  }, [systemConfig]);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
+  // Global Firestore & runtime error reporting -> Firestore error_logs
+  useEffect(() => {
+    registerFirestoreErrorObserver((info) => {
+      const isDev = currentUserRef.current?.role === 'developer';
+      void logSystemError({
+        source: 'firestore',
+        severity: 'error',
+        message: info.error,
+        path: info.path || window.location.pathname || '/',
+        operation: info.operationType,
+        skipIfLockdown: systemConfigRef.current.emergencyLockdown && !isDev,
+      });
+    });
+
+    const handleWindowError = (event: ErrorEvent) => {
+      const isDev = currentUserRef.current?.role === 'developer';
+      void logSystemError({
+        source: 'runtime',
+        severity: 'error',
+        message: event.message || 'Unhandled runtime error',
+        path: window.location.pathname || '/',
+        operation: 'window.onerror',
+        skipIfLockdown: systemConfigRef.current.emergencyLockdown && !isDev,
+      });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const isDev = currentUserRef.current?.role === 'developer';
+      const reasonMsg =
+        event.reason instanceof Error
+          ? event.reason.message
+          : typeof event.reason === 'string'
+          ? event.reason
+          : 'Unhandled promise rejection';
+      // Avoid double-logging structured FirestoreErrorInfo already captured by observer
+      if (reasonMsg.startsWith('{"error":') && reasonMsg.includes('"operationType"')) return;
+      void logSystemError({
+        source: 'unhandled_rejection',
+        severity: 'error',
+        message: reasonMsg,
+        path: window.location.pathname || '/',
+        operation: 'promise',
+        skipIfLockdown: systemConfigRef.current.emergencyLockdown && !isDev,
+      });
+    };
+
+    window.addEventListener('error', handleWindowError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => {
+      registerFirestoreErrorObserver(null);
+      window.removeEventListener('error', handleWindowError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -154,8 +279,35 @@ export default function App() {
     }
   }, []);
 
-  // 1. Public Firestore Listeners (Zero-PII collections: settings, ambassadors, workshops)
+  // 1. Public Firestore Listeners (Zero-PII collections: config/system, settings, ambassadors, workshops)
   useEffect(() => {
+    const unsubSystemConfig = onSnapshot(
+      doc(firestore, 'config', 'system'),
+      (snap) => {
+        if (!snap.exists()) {
+          setSystemConfig(DEFAULT_SYSTEM_CONFIG);
+          return;
+        }
+        const d = snap.data();
+        setSystemConfig({
+          maintenanceMode: Boolean(d.maintenanceMode),
+          maintenanceMessage: String(
+            d.maintenanceMessage || DEFAULT_SYSTEM_CONFIG.maintenanceMessage
+          ),
+          emergencyLockdown: Boolean(d.emergencyLockdown),
+          lockdownMessage: String(
+            d.lockdownMessage || DEFAULT_SYSTEM_CONFIG.lockdownMessage
+          ),
+          lockdownEpoch: Number(d.lockdownEpoch || 0),
+          updatedByName: String(d.updatedByName || 'Platform Developer'),
+          updatedByUid: String(d.updatedByUid || 'system'),
+          updatedAt: timestampToDate(d.updatedAt),
+        });
+      },
+      (err) => {
+        console.warn('System config snapshot notice:', err.message);
+      }
+    );
     const unsubSettings = onSnapshot(
       doc(firestore, 'settings', 'program'),
       (snap) => {
@@ -232,6 +384,7 @@ export default function App() {
     );
 
     return () => {
+      unsubSystemConfig();
       unsubSettings();
       unsubAmbassadors();
       unsubWorkshops();
@@ -277,34 +430,69 @@ export default function App() {
             caCode: assignment?.caCode || 'UE-DEV-00',
             campus: assignment?.campus || 'Ulterior Engineering HQ',
           });
-        } else if (assignment) {
-          setCurrentUser({
-            uid: fbUser.uid,
-            email: fbUser.email,
-            displayName: assignment.displayName || fbUser.displayName || fbUser.email,
-            photoURL: fbUser.photoURL,
-            emailVerified: fbUser.emailVerified,
-            assigned: true,
-            isMainDeveloper: false,
-            role: assignment.role,
-            squad: assignment.squad,
-            caCode: assignment.caCode || '',
-            campus: assignment.campus || '',
-          });
         } else {
-          setCurrentUser({
-            uid: fbUser.uid,
-            email: fbUser.email,
-            displayName: fbUser.displayName || fbUser.email,
-            photoURL: fbUser.photoURL,
-            emailVerified: fbUser.emailVerified,
-            assigned: false,
-            isMainDeveloper: false,
-            role: null,
-            squad: null,
-            caCode: '',
-            campus: '',
-          });
+          // Check moderation status (suspended / banned) before granting session
+          const modRecord = await fetchUserModerationStatus(emailLower).catch(() => null);
+          if (modRecord && (modRecord.status === 'suspended' || modRecord.status === 'banned')) {
+            await signOut(auth);
+            setCurrentUser(null);
+            setDashboardOpen(false);
+            setBlockedNotice({
+              type: modRecord.status,
+              title:
+                modRecord.status === 'banned'
+                  ? 'Your account has been permanently banned'
+                  : 'Your account is currently suspended',
+              reason:
+                modRecord.reason ||
+                'Access to the portal has been restricted by a Platform Developer.',
+            });
+            return;
+          }
+
+          // If Emergency Lockdown is active and user is not a Developer, sign out immediately
+          const isSecondaryDev = assignment?.role === 'developer';
+          if (systemConfigRef.current.emergencyLockdown && !isSecondaryDev) {
+            await signOut(auth);
+            setCurrentUser(null);
+            setDashboardOpen(false);
+            setBlockedNotice({
+              type: 'lockdown',
+              title: 'Signed Out — Emergency Read-Only Lockdown',
+              reason: systemConfigRef.current.lockdownMessage,
+            });
+            return;
+          }
+
+          if (assignment) {
+            setCurrentUser({
+              uid: fbUser.uid,
+              email: fbUser.email,
+              displayName: assignment.displayName || fbUser.displayName || fbUser.email,
+              photoURL: fbUser.photoURL,
+              emailVerified: fbUser.emailVerified,
+              assigned: true,
+              isMainDeveloper: false,
+              role: assignment.role,
+              squad: assignment.squad,
+              caCode: assignment.caCode || '',
+              campus: assignment.campus || '',
+            });
+          } else {
+            setCurrentUser({
+              uid: fbUser.uid,
+              email: fbUser.email,
+              displayName: fbUser.displayName || fbUser.email,
+              photoURL: fbUser.photoURL,
+              emailVerified: fbUser.emailVerified,
+              assigned: false,
+              isMainDeveloper: false,
+              role: null,
+              squad: null,
+              caCode: '',
+              campus: '',
+            });
+          }
         }
       } catch (err) {
         console.error('Role resolution error:', err);
@@ -329,6 +517,59 @@ export default function App() {
     return () => unsub();
   }, []);
 
+  // 2B. Real-time Emergency Lockdown Enforcement: immediately sign out all non-developer users
+  useEffect(() => {
+    if (!systemConfig.emergencyLockdown) return;
+    if (!currentUser || currentUser.role === 'developer') return;
+
+    void signOut(auth).finally(() => {
+      setCurrentUser(null);
+      setDashboardOpen(false);
+      setApplyModalState((s) => ({ ...s, open: false }));
+      setActiveWorkshop(null);
+      setSheetSyncOpen(false);
+      setBlockedNotice({
+        type: 'lockdown',
+        title: 'Emergency Read-Only Lockdown Activated',
+        reason: systemConfig.lockdownMessage,
+      });
+    });
+  }, [systemConfig.emergencyLockdown, systemConfig.lockdownEpoch, systemConfig.lockdownMessage, currentUser]);
+
+  // 2C. Real-time Suspension / Ban Listener for signed-in non-Main-Developer users
+  useEffect(() => {
+    if (!currentUser || !currentUser.emailVerified || currentUser.isMainDeveloper) return;
+    const emailKey = normalizeEmailKey(currentUser.email);
+    const unsub = onSnapshot(
+      doc(firestore, 'user_moderation', emailKey),
+      (snap) => {
+        if (!snap.exists()) return;
+        const d = snap.data();
+        const status = d.status as UserModerationStatus;
+        if (status === 'suspended' || status === 'banned') {
+          void signOut(auth).finally(() => {
+            setCurrentUser(null);
+            setDashboardOpen(false);
+            setBlockedNotice({
+              type: status,
+              title:
+                status === 'banned'
+                  ? 'Account Permanently Banned'
+                  : 'Account Suspended by Administrator',
+              reason:
+                String(d.reason || '') ||
+                'Your access has been restricted by a Platform Developer.',
+            });
+          });
+        }
+      },
+      () => {
+        // ignore transient read errors on sign-out
+      }
+    );
+    return () => unsub();
+  }, [currentUser]);
+
   // 3. Role-Scoped Protected Firestore Listeners (Strictly obeys Firestore RBAC rules!)
   useEffect(() => {
     if (!currentUser || !currentUser.emailVerified) {
@@ -342,6 +583,9 @@ export default function App() {
         workshopRegistrations: [],
         roleAssignments: [],
       }));
+      setUserModerations([]);
+      setAuditLogs([]);
+      setErrorLogs([]);
       return;
     }
 
@@ -569,6 +813,92 @@ export default function App() {
       );
     }
 
+    // I. Developer-Only /admin Listeners (user_moderation, audit_logs, error_logs)
+    if (role === 'developer') {
+      unsubs.push(
+        onSnapshot(
+          collection(firestore, 'user_moderation'),
+          (snap) => {
+            const list: UserModerationRecord[] = snap.docs.map((d) => {
+              const v = d.data();
+              return {
+                id: d.id,
+                email: String(v.email || ''),
+                displayName: String(v.displayName || ''),
+                status: (v.status || 'active') as UserModerationStatus,
+                reason: String(v.reason || ''),
+                updatedByName: String(v.updatedByName || ''),
+                updatedByUid: String(v.updatedByUid || ''),
+                updatedAt: timestampToDate(v.updatedAt),
+              };
+            });
+            setUserModerations(list);
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'user_moderation')
+        )
+      );
+
+      unsubs.push(
+        onSnapshot(
+          query(
+            collection(firestore, 'audit_logs'),
+            orderBy('createdAt', 'desc'),
+            limit(200)
+          ),
+          (snap) => {
+            const list: AdminAuditLog[] = snap.docs.map((d) => {
+              const v = d.data();
+              return {
+                id: d.id,
+                actorUid: String(v.actorUid || ''),
+                actorEmail: String(v.actorEmail || ''),
+                actorName: String(v.actorName || ''),
+                action: (v.action || 'SYSTEM_CONFIG_UPDATED') as AdminAuditAction,
+                target: String(v.target || ''),
+                details: String(v.details || ''),
+                createdAt: timestampToDate(v.createdAt),
+              };
+            });
+            setAuditLogs(list);
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'audit_logs')
+        )
+      );
+
+      unsubs.push(
+        onSnapshot(
+          query(
+            collection(firestore, 'error_logs'),
+            orderBy('createdAt', 'desc'),
+            limit(200)
+          ),
+          (snap) => {
+            const list: SystemErrorLog[] = snap.docs.map((d) => {
+              const v = d.data();
+              return {
+                id: d.id,
+                source: (v.source || 'runtime') as SystemErrorSource,
+                severity: (v.severity || 'error') as SystemErrorSeverity,
+                message: String(v.message || ''),
+                path: String(v.path || '/'),
+                operation: String(v.operation || 'runtime'),
+                userUid: String(v.userUid || ''),
+                userEmail: String(v.userEmail || ''),
+                resolved: Boolean(v.resolved),
+                createdAt: timestampToDate(v.createdAt),
+              };
+            });
+            setErrorLogs(list);
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'error_logs')
+        )
+      );
+    } else {
+      setUserModerations([]);
+      setAuditLogs([]);
+      setErrorLogs([]);
+    }
+
     return () => {
       unsubs.forEach((u) => u());
     };
@@ -595,19 +925,56 @@ export default function App() {
       const assignment = signedEmail ? await fetchRoleAssignmentForEmail(signedEmail) : null;
       const resolvedRole: UserRole | null = isMainDev ? 'developer' : assignment?.role ?? null;
 
+      // Check suspension / ban before allowing entry
+      if (!isMainDev && signedEmail) {
+        const mod = await fetchUserModerationStatus(signedEmail).catch(() => null);
+        if (mod && (mod.status === 'suspended' || mod.status === 'banned')) {
+          await signOut(auth);
+          setDashboardOpen(false);
+          setAuthModalOpen(false);
+          setBlockedNotice({
+            type: mod.status,
+            title:
+              mod.status === 'banned'
+                ? 'Account Permanently Banned'
+                : 'Account Currently Suspended',
+            reason:
+              mod.reason ||
+              'Your account has been restricted by a Platform Developer.',
+          });
+          return;
+        }
+      }
+
+      // During Emergency Lockdown, block all non-developer sign-ins / sign-ups
+      if (systemConfigRef.current.emergencyLockdown && resolvedRole !== 'developer') {
+        await signOut(auth);
+        setDashboardOpen(false);
+        setAuthModalMode(intent);
+        setAuthModalOpen(true);
+        setAuthError(
+          'Emergency Read-Only Lockdown is active. Only authorized Platform Developers may sign in.'
+        );
+        return;
+      }
+
       if (intent === 'developer') {
         if (resolvedRole !== 'developer') {
           await signOut(auth);
           setDashboardOpen(false);
           setAuthModalMode('developer');
-          setAuthModalOpen(true);
+          if (!isAdminRoute) {
+            setAuthModalOpen(true);
+          }
           setAuthError(
             'Access Denied. This Google account is not authorized for Developer Mode.'
           );
           return;
         }
         setAuthModalOpen(false);
-        setDashboardOpen(true);
+        if (!isAdminRoute) {
+          setDashboardOpen(true);
+        }
         showToast(
           isMainDev
             ? 'Main Developer Root Console unlocked (Permanent Tier 0A).'
@@ -672,6 +1039,10 @@ export default function App() {
 
   // Public & Dashboard Actions wired to Cloud Firestore
   const handleApply = (role: string, squad?: SquadName) => {
+    if (systemConfig.emergencyLockdown && currentUser?.role !== 'developer') {
+      showToast('Emergency Read-Only Lockdown is active. Applications are temporarily paused.');
+      return;
+    }
     if (!hasAnyOpenRecruitmentRole(portalData.recruitmentStatus)) {
       showToast('All recruitment positions are currently closed.');
       return;
@@ -850,18 +1221,102 @@ export default function App() {
     }
   };
 
+  const isDeveloper = Boolean(
+    currentUser && currentUser.emailVerified && currentUser.role === 'developer'
+  );
+  const readOnlyLockdown = systemConfig.emergencyLockdown && !isDeveloper;
+
   const canBulkSyncCSV =
+    !readOnlyLockdown &&
     !!currentUser?.assigned &&
     (isFullAccessRole(currentUser.role) || currentUser.role === 'lead1');
 
+  // ROUTE 1: Dedicated Developer-Only /admin Control Center
+  if (isAdminRoute) {
+    return (
+      <>
+        <AdminPage
+          currentUser={currentUser}
+          authLoading={authLoading}
+          signingIn={signingIn}
+          authError={authError}
+          systemConfig={systemConfig}
+          portalData={portalData}
+          userModerations={userModerations}
+          auditLogs={auditLogs}
+          errorLogs={errorLogs}
+          onDeveloperSignIn={() => handleGoogleSignIn('developer')}
+          onLogout={handleLogout}
+          onNavigateHome={() => navigateTo('/')}
+          onOpenRoleDashboard={() => {
+            navigateTo('/');
+            setDashboardOpen(true);
+          }}
+          onNotify={showToast}
+        />
+
+        {toastMsg && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed top-20 right-4 z-[70] max-w-sm bg-[#111318] text-white text-xs font-medium px-4 py-3 rounded-lg shadow-xl border border-[#262B35]"
+          >
+            {toastMsg}
+          </div>
+        )}
+
+        <AccountBlockedModal
+          notice={blockedNotice}
+          onDismiss={() => setBlockedNotice(null)}
+        />
+      </>
+    );
+  }
+
+  // ROUTE 2: Maintenance Mode Gate (Everyone except role = developer sees Maintenance Page)
+  if (systemConfig.maintenanceMode && !isDeveloper) {
+    return (
+      <>
+        <MaintenanceScreen
+          config={systemConfig}
+          signingIn={signingIn}
+          onDeveloperSignIn={() => handleGoogleSignIn('developer')}
+          onOpenAdminRoute={() => navigateTo('/admin')}
+        />
+
+        {toastMsg && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed top-20 right-4 z-[70] max-w-sm bg-[#111318] text-white text-xs font-medium px-4 py-3 rounded-lg shadow-xl border border-[#262B35]"
+          >
+            {toastMsg}
+          </div>
+        )}
+
+        <AccountBlockedModal
+          notice={blockedNotice}
+          onDismiss={() => setBlockedNotice(null)}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100">
+      <SystemStatusBanner
+        config={systemConfig}
+        isDeveloper={isDeveloper}
+        onOpenAdmin={() => navigateTo('/admin')}
+      />
+
       <Header
         detectedRefCode={detectedRefCode}
         referringCA={referringCA}
         currentUser={currentUser}
         authLoading={authLoading}
         onOpenAuthOrDashboard={() => handleOpenAuthOrDashboard('standard')}
+        onOpenAdminPage={() => navigateTo('/admin')}
       />
 
       <main>
@@ -895,6 +1350,7 @@ export default function App() {
         <WorkshopsAndVerifySection
           db={portalData}
           currentUser={currentUser}
+          readOnlyLockdown={readOnlyLockdown}
           onRequireSignIn={() => handleGoogleSignIn('standard')}
           onSelectWorkshop={(ws) => setActiveWorkshop(ws)}
           onVerifyCertificate={handleVerifyCertificate}
@@ -953,6 +1409,13 @@ export default function App() {
               className="font-mono font-semibold text-[#111318] dark:text-slate-200 hover:text-[#B51B27] transition-colors cursor-pointer"
             >
               Developer Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateTo('/admin')}
+              className="font-mono font-semibold text-[#B51B27] hover:underline transition-colors cursor-pointer"
+            >
+              /admin
             </button>
           </div>
         </div>
@@ -1024,6 +1487,10 @@ export default function App() {
           db={portalData}
           user={currentUser}
           onClose={() => setDashboardOpen(false)}
+          onOpenAdminPage={() => {
+            setDashboardOpen(false);
+            navigateTo('/admin');
+          }}
           onLogout={handleLogout}
           onApplyForRole={() => {
             setDashboardOpen(false);
@@ -1042,10 +1509,27 @@ export default function App() {
           }}
           onUpsertRole={async (input) => {
             await upsertRoleAssignment(input);
+            if (currentUser.role === 'developer') {
+              await writeAdminAuditLog(
+                'ROLE_ASSIGNED',
+                input.email.toLowerCase(),
+                `Assigned role "${input.role}" (${input.squad}) to ${input.displayName} (${input.email}).`
+              ).catch(() => {});
+            }
             showToast(`Assigned ${input.role.toUpperCase()} access to ${input.email}.`);
           }}
           onDeleteRole={async (emailKey) => {
-            await removeRoleAssignment(emailKey);
+            const target = portalData.roleAssignments.find((r) => r.id === emailKey);
+            if (currentUser.role === 'developer' && target) {
+              await revokeUserRoleWithAudit({
+                emailKey,
+                email: target.email,
+                previousRole: target.role,
+                reason: 'Role revoked from Developer Role Dashboard',
+              });
+            } else {
+              await removeRoleAssignment(emailKey);
+            }
             showToast('Role access revoked.');
           }}
           onAddAmbassador={async (input) => {
@@ -1168,6 +1652,7 @@ export default function App() {
         initialMode={authModalMode}
         signingIn={signingIn}
         authError={authError}
+        emergencyLockdown={systemConfig.emergencyLockdown}
         onClearError={() => setAuthError(null)}
         onClose={() => {
           setAuthError(null);
@@ -1182,6 +1667,7 @@ export default function App() {
         defaultSquad={applyModalState.squad}
         recruitmentStatus={portalData.recruitmentStatus}
         currentUser={currentUser}
+        readOnlyLockdown={readOnlyLockdown}
         onRequireSignIn={() => handleGoogleSignIn('standard')}
         onClose={() => setApplyModalState((s) => ({ ...s, open: false }))}
         onSubmit={handleSubmitApplication}
@@ -1191,6 +1677,7 @@ export default function App() {
         workshop={activeWorkshop}
         defaultRefCode={detectedRefCode}
         currentUser={currentUser}
+        readOnlyLockdown={readOnlyLockdown}
         onRequireSignIn={() => handleGoogleSignIn('standard')}
         onClose={() => setActiveWorkshop(null)}
         onSubmit={handleSubmitWorkshopReg}
@@ -1199,6 +1686,7 @@ export default function App() {
       <SheetSyncModal
         open={sheetSyncOpen}
         canSync={canBulkSyncCSV}
+        readOnlyLockdown={readOnlyLockdown}
         onClose={() => setSheetSyncOpen(false)}
         onSync={handleSyncGoogleSheetCSV}
       />
@@ -1207,6 +1695,11 @@ export default function App() {
         open={guideOpen}
         kpiWeights={portalData.kpiWeights}
         onClose={() => setGuideOpen(false)}
+      />
+
+      <AccountBlockedModal
+        notice={blockedNotice}
+        onDismiss={() => setBlockedNotice(null)}
       />
     </div>
   );

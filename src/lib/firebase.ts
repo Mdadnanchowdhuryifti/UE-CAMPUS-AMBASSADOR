@@ -57,6 +57,13 @@ export interface FirestoreErrorInfo {
   };
 }
 
+type FirestoreErrorObserver = (info: FirestoreErrorInfo) => void;
+let firestoreErrorObserver: FirestoreErrorObserver | null = null;
+
+export function registerFirestoreErrorObserver(observer: FirestoreErrorObserver | null) {
+  firestoreErrorObserver = observer;
+}
+
 export function handleFirestoreError(
   error: unknown,
   operationType: OperationType,
@@ -80,6 +87,13 @@ export function handleFirestoreError(
     path,
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
+  if (firestoreErrorObserver && path !== 'error_logs' && !path?.startsWith('error_logs/')) {
+    try {
+      firestoreErrorObserver(errInfo);
+    } catch {
+      // ignore observer errors
+    }
+  }
   throw new Error(JSON.stringify(errInfo));
 }
 

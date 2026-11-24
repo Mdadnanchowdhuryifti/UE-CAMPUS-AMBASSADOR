@@ -194,12 +194,107 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["club", "university", "contact", "type", "date", "status", "submitterUid", "createdAt", "updatedAt"]
+    },
+    "SystemConfig": {
+      "title": "SystemConfig",
+      "description": "Global platform controls for Maintenance Mode and Emergency Read-Only Lockdown (doc ID: system). Zero PII so it can be read publicly before sign-in.",
+      "type": "object",
+      "properties": {
+        "maintenanceMode": { "type": "boolean" },
+        "maintenanceMessage": { "type": "string", "minLength": 5, "maxLength": 500 },
+        "emergencyLockdown": { "type": "boolean" },
+        "lockdownMessage": { "type": "string", "minLength": 5, "maxLength": 500 },
+        "lockdownEpoch": { "type": "number" },
+        "updatedByName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "updatedByUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["maintenanceMode", "maintenanceMessage", "emergencyLockdown", "lockdownMessage", "lockdownEpoch", "updatedByName", "updatedByUid", "updatedAt"]
+    },
+    "UserModeration": {
+      "title": "UserModeration",
+      "description": "Developer-controlled user suspension or permanent ban record keyed by normalized email. Blocks writes and triggers automatic client sign-out.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email", "minLength": 5, "maxLength": 160 },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "status": { "type": "string", "enum": ["active", "suspended", "banned"] },
+        "reason": { "type": "string", "minLength": 3, "maxLength": 500 },
+        "updatedByName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "updatedByUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "displayName", "status", "reason", "updatedByName", "updatedByUid", "updatedAt"]
+    },
+    "AdminAuditLog": {
+      "title": "AdminAuditLog",
+      "description": "Immutable append-only audit log recording every developer admin action (who, what, target, details, when).",
+      "type": "object",
+      "properties": {
+        "actorUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "actorEmail": { "type": "string", "format": "email", "minLength": 5, "maxLength": 160 },
+        "actorName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "action": {
+          "type": "string",
+          "enum": [
+            "MAINTENANCE_ENABLED",
+            "MAINTENANCE_DISABLED",
+            "LOCKDOWN_ENABLED",
+            "LOCKDOWN_DISABLED",
+            "USER_SUSPENDED",
+            "USER_BANNED",
+            "USER_RESTORED",
+            "ROLE_REVOKED",
+            "ROLE_ASSIGNED",
+            "ERROR_LOG_RESOLVED",
+            "ERROR_LOG_DELETED",
+            "SYSTEM_CONFIG_UPDATED"
+          ]
+        },
+        "target": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "details": { "type": "string", "minLength": 2, "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["actorUid", "actorEmail", "actorName", "action", "target", "details", "createdAt"]
+    },
+    "SystemErrorLog": {
+      "title": "SystemErrorLog",
+      "description": "Application runtime and Firestore error log visible and manageable exclusively by Platform Developers.",
+      "type": "object",
+      "properties": {
+        "source": { "type": "string", "enum": ["firestore", "runtime", "unhandled_rejection", "auth", "ui_boundary", "admin"] },
+        "severity": { "type": "string", "enum": ["error", "warning", "critical"] },
+        "message": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "path": { "type": "string", "maxLength": 200 },
+        "operation": { "type": "string", "maxLength": 40 },
+        "userUid": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 160 },
+        "resolved": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["source", "severity", "message", "path", "operation", "userUid", "userEmail", "resolved", "createdAt"]
     }
   },
   "firestore": {
     "/settings/{settingId}": {
       "schema": { "$ref": "#/entities/ProgramSettings" },
       "description": "Global KPI weights, leadership display names, and granular recruitment open/close switches (doc ID: program)."
+    },
+    "/config/{configId}": {
+      "schema": { "$ref": "#/entities/SystemConfig" },
+      "description": "System-level maintenance mode and emergency lockdown configuration (doc ID: system). Publicly readable (zero PII); Developer-only writable."
+    },
+    "/user_moderation/{emailKey}": {
+      "schema": { "$ref": "#/entities/UserModeration" },
+      "description": "Per-user suspension and ban registry keyed by normalized email. Readable by affected user or Developer; writable exclusively by Developer."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AdminAuditLog" },
+      "description": "Immutable Developer-only audit trail of all admin actions."
+    },
+    "/error_logs/{errorId}": {
+      "schema": { "$ref": "#/entities/SystemErrorLog" },
+      "description": "Application and Firestore error telemetry readable and manageable exclusively by Developers."
     },
     "/role_assignments/{emailKey}": {
       "schema": { "$ref": "#/entities/RoleAssignment" },

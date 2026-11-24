@@ -29,6 +29,7 @@ interface AuthModalProps {
   initialMode?: AuthSignInMode;
   signingIn: boolean;
   authError: string | null;
+  emergencyLockdown?: boolean;
   onClearError: () => void;
   onClose: () => void;
   onGoogleSignIn: (intent?: AuthSignInMode, emailHint?: string) => Promise<void>;
@@ -39,6 +40,7 @@ export function AuthModal({
   initialMode = 'standard',
   signingIn,
   authError,
+  emergencyLockdown = false,
   onClearError,
   onClose,
   onGoogleSignIn,
@@ -142,6 +144,19 @@ export function AuthModal({
           </button>
         </div>
 
+        {emergencyLockdown && mode !== 'developer' && (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs text-red-800 dark:text-red-200"
+          >
+            <Lock className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
+            <span>
+              <strong>Emergency Read-Only Lockdown Active:</strong> Non-developer sign-ins and
+              sign-ups are temporarily suspended. Only authorized Developers may sign in.
+            </span>
+          </div>
+        )}
+
         {authError && (
           <div
             role="alert"
@@ -216,12 +231,14 @@ export function AuthModal({
 
               <button
                 type="submit"
-                disabled={signingIn}
-                className="w-full inline-flex items-center justify-center gap-2.5 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white text-sm font-semibold py-3 px-5 rounded-xl transition-colors cursor-pointer"
+                disabled={signingIn || emergencyLockdown}
+                className="w-full inline-flex items-center justify-center gap-2.5 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold py-3 px-5 rounded-xl transition-colors cursor-pointer"
               >
                 <Crown className="w-4 h-4" />
                 <span>
-                  {signingIn
+                  {emergencyLockdown
+                    ? 'Sign-In Suspended (Emergency Lockdown)'
+                    : signingIn
                     ? 'Verifying Chair / CEO Email...'
                     : 'Sign In as Chair or Company CEO (Google)'}
                 </span>
@@ -294,9 +311,9 @@ export function AuthModal({
 
             <button
               type="button"
-              disabled={signingIn}
+              disabled={signingIn || emergencyLockdown}
               onClick={() => void onGoogleSignIn('standard')}
-              className="w-full inline-flex items-center justify-center gap-3 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 text-white text-sm font-semibold py-3 px-5 rounded-xl transition-colors cursor-pointer"
+              className="w-full inline-flex items-center justify-center gap-3 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold py-3 px-5 rounded-xl transition-colors cursor-pointer"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
                 <path
@@ -304,7 +321,13 @@ export function AuthModal({
                   d="M21.35 11.1h-9.18v2.92h5.27c-.23 1.48-1.74 4.35-5.27 4.35-3.17 0-5.76-2.63-5.76-5.87s2.59-5.87 5.76-5.87c1.81 0 3.02.77 3.71 1.43l2.53-2.44C16.79 4.1 14.69 3.2 12.17 3.2 7.21 3.2 3.2 7.21 3.2 12.17s4.01 8.97 8.97 8.97c5.18 0 8.61-3.64 8.61-8.77 0-.59-.06-1.04-.14-1.27z"
                 />
               </svg>
-              <span>{signingIn ? 'Verifying Google Account...' : 'Continue with Google'}</span>
+              <span>
+                {emergencyLockdown
+                  ? 'Sign-In Suspended (Emergency Lockdown)'
+                  : signingIn
+                  ? 'Verifying Google Account...'
+                  : 'Continue with Google'}
+              </span>
             </button>
           </>
         )}
@@ -319,6 +342,7 @@ interface ApplyModalProps {
   defaultSquad: SquadName;
   recruitmentStatus: RecruitmentStatusMap;
   currentUser: PortalUser | null;
+  readOnlyLockdown?: boolean;
   onRequireSignIn: () => Promise<void>;
   onClose: () => void;
   onSubmit: (app: {
@@ -337,6 +361,7 @@ export function ApplyModal({
   defaultSquad,
   recruitmentStatus,
   currentUser,
+  readOnlyLockdown = false,
   onRequireSignIn,
   onClose,
   onSubmit,
@@ -368,7 +393,7 @@ export function ApplyModal({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!anyOpen || !selectedRoleOpen) return;
+    if (readOnlyLockdown || !anyOpen || !selectedRoleOpen) return;
     if (!currentUser) {
       await onRequireSignIn();
       return;
@@ -421,7 +446,29 @@ export function ApplyModal({
           </button>
         </div>
 
-        {!anyOpen ? (
+        {readOnlyLockdown ? (
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 flex items-start gap-3">
+              <Lock className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="font-bold text-[#111318] dark:text-white">
+                  Emergency Read-Only Lockdown Active
+                </div>
+                <p className="text-[#5A6270] dark:text-slate-300 leading-relaxed">
+                  Applications and all write submissions are temporarily paused by Platform
+                  Developers.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 rounded-lg border border-[#E2E5EB] dark:border-[#262B35] font-semibold text-[#111318] dark:text-white cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        ) : !anyOpen ? (
           <div className="space-y-4 py-2 text-xs">
             <div className="p-4 rounded-xl bg-[#F4F5F7] dark:bg-[#0D0F12] border border-[#E2E5EB] dark:border-[#262B35] flex items-start gap-3">
               <Lock className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
@@ -586,6 +633,7 @@ interface WorkshopModalProps {
   workshop: Workshop | null;
   defaultRefCode: string;
   currentUser: PortalUser | null;
+  readOnlyLockdown?: boolean;
   onRequireSignIn: () => Promise<void>;
   onClose: () => void;
   onSubmit: (reg: {
@@ -602,6 +650,7 @@ export function WorkshopModal({
   workshop,
   defaultRefCode,
   currentUser,
+  readOnlyLockdown = false,
   onRequireSignIn,
   onClose,
   onSubmit,
@@ -628,7 +677,7 @@ export function WorkshopModal({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (isFull) return;
+    if (isFull || readOnlyLockdown) return;
     setRegError(null);
     if (!currentUser) {
       await onRequireSignIn();
@@ -685,13 +734,17 @@ export function WorkshopModal({
           </button>
         </div>
 
-        {(regError || isFull) && (
+        {(regError || isFull || readOnlyLockdown) && (
           <div
             role="alert"
             className="mb-3 flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs text-red-800 dark:text-red-200"
           >
             <AlertCircle className="w-4 h-4 text-[#B51B27] shrink-0 mt-0.5" />
-            <span>{regError || 'This workshop has reached full seat capacity.'}</span>
+            <span>
+              {readOnlyLockdown
+                ? 'Emergency Read-Only Lockdown is active. Workshop registrations are temporarily paused.'
+                : regError || 'This workshop has reached full seat capacity.'}
+            </span>
           </div>
         )}
 
@@ -739,10 +792,12 @@ export function WorkshopModal({
           </div>
           <button
             type="submit"
-            disabled={submitting || isFull}
+            disabled={submitting || isFull || readOnlyLockdown}
             className="w-full inline-flex items-center justify-center gap-2 bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
           >
-            {isFull ? (
+            {readOnlyLockdown ? (
+              <span>Registrations Paused (Lockdown)</span>
+            ) : isFull ? (
               <span>Workshop Full</span>
             ) : currentUser ? (
               <span>{submitting ? 'Confirming...' : 'Confirm Registration'}</span>
@@ -762,6 +817,7 @@ export function WorkshopModal({
 interface SheetSyncModalProps {
   open: boolean;
   canSync: boolean;
+  readOnlyLockdown?: boolean;
   onClose: () => void;
   onSync: (url: string) => Promise<void>;
 }
@@ -769,6 +825,7 @@ interface SheetSyncModalProps {
 export function SheetSyncModal({
   open,
   canSync,
+  readOnlyLockdown = false,
   onClose,
   onSync,
 }: SheetSyncModalProps) {
@@ -780,7 +837,7 @@ export function SheetSyncModal({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!url.trim() || !canSync) return;
+    if (!url.trim() || !canSync || readOnlyLockdown) return;
     setSyncError(null);
     let safeUrl: string;
     try {
@@ -833,7 +890,20 @@ export function SheetSyncModal({
           </button>
         </div>
 
-        {!canSync ? (
+        {readOnlyLockdown ? (
+          <div className="space-y-4 text-xs text-[#5A6270] dark:text-slate-300">
+            <p className="text-red-700 dark:text-red-300 font-medium">
+              Emergency Read-Only Lockdown is active. CSV uploads and roster imports are disabled.
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 rounded-lg border border-[#E2E5EB] dark:border-[#262B35] font-semibold text-[#111318] dark:text-white cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        ) : !canSync ? (
           <div className="space-y-4 text-xs text-[#5A6270] dark:text-slate-300">
             <p>
               Only the signed-in <strong>Platform Developer</strong>,{' '}
