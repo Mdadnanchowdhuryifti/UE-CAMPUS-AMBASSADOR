@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { Menu, Terminal, UserRound, Users, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Terminal, UserRound, Users } from 'lucide-react';
 import { Ambassador, PortalUser } from '../types';
-import { PWAInstallButton } from './PWAInstallButton';
+import { DesktopTopNav, NotificationBell } from './AppNavigation';
 
 interface HeaderProps {
   detectedRefCode: string;
@@ -20,22 +20,11 @@ export function Header({
   authLoading,
   onOpenAuthOrDashboard,
   onOpenAdminPage,
-  onNavigatePath,
 }: HeaderProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const canManageMembers =
     currentUser?.role === 'chair' ||
     currentUser?.role === 'secretary' ||
     currentUser?.role === 'developer';
-
-  const navItems = [
-    { href: '#architecture', label: 'Architecture' },
-    { href: '#excom', label: 'ExCom' },
-    { href: '#squads', label: 'Squads' },
-    { href: '#leaderboard', label: 'Leaderboard' },
-    { href: '#workshops', label: 'Workshops' },
-  ];
 
   const getPrimaryLabel = () => {
     if (authLoading) return 'Checking Session...';
@@ -68,12 +57,12 @@ export function Header({
               (<span className="font-mono underline">{detectedRefCode}</span>). Your workshop
               registration will be tracked automatically.
             </span>
-            <a
-              href="#workshops"
+            <Link
+              to="/workshops"
               className="bg-white text-[#B51B27] font-semibold px-3 py-1 rounded text-xs hover:bg-slate-100 transition whitespace-nowrap shrink-0"
             >
               View Workshops
-            </a>
+            </Link>
           </div>
         </div>
       )}
@@ -81,8 +70,9 @@ export function Header({
       <header className="sticky top-0 z-40 glass-panel border-b border-[#E2E5EB] dark:border-[#262B35]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-8">
           {/* Zone 1: Single-line Brand Wordmark */}
-          <a
-            href="#"
+          <Link
+            to="/"
+            aria-label="Ulterior Engineering — Home"
             className="flex items-center gap-2.5 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-4 rounded"
           >
             <svg
@@ -104,44 +94,36 @@ export function Header({
             <span className="font-display font-extrabold tracking-tight text-base text-[#111318] dark:text-white">
               Ulterior Engineering
             </span>
-          </a>
+          </Link>
 
-          {/* Zone 2: 5 Single-line Nav Links */}
-          <nav
-            aria-label="Primary"
-            className="hidden lg:flex items-center gap-7 text-sm font-medium text-[#5A6270] dark:text-slate-300"
-          >
-            {navItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="hover:text-[#B51B27] dark:hover:text-white transition-colors whitespace-nowrap shrink-0 underline-offset-4 hover:underline"
+          {/* Zone 2: Facebook-style centred icon navigation (desktop) */}
+          <div className="hidden lg:flex flex-1 items-center justify-center gap-2">
+            <DesktopTopNav />
+            {currentUser && (
+              <Link
+                to="/profile"
+                aria-label="My Profile"
+                title="My Profile"
+                className="inline-flex items-center justify-center w-12 h-11 min-w-[44px] min-h-[44px] rounded-lg text-[#5A6270] dark:text-slate-400 hover:text-[#B51B27] dark:hover:text-white hover:bg-[#B51B27]/10 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-2"
               >
-                {item.label}
-              </a>
-            ))}
-            {currentUser && onNavigatePath && (
-              <button
-                type="button"
-                onClick={() => onNavigatePath('/profile')}
-                className="hover:text-[#B51B27] dark:hover:text-white transition-colors whitespace-nowrap shrink-0 underline-offset-4 hover:underline cursor-pointer"
-              >
-                Profile
-              </button>
+                <UserRound className="w-5 h-5" aria-hidden="true" />
+              </Link>
             )}
-            {currentUser && canManageMembers && onNavigatePath && (
-              <button
-                type="button"
-                onClick={() => onNavigatePath('/members')}
-                className="hover:text-[#B51B27] dark:hover:text-white transition-colors whitespace-nowrap shrink-0 underline-offset-4 hover:underline cursor-pointer"
+            {currentUser && canManageMembers && (
+              <Link
+                to="/members"
+                aria-label="Manage Members"
+                title="Manage Members"
+                className="inline-flex items-center justify-center w-12 h-11 min-w-[44px] min-h-[44px] rounded-lg text-[#5A6270] dark:text-slate-400 hover:text-[#B51B27] dark:hover:text-white hover:bg-[#B51B27]/10 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-2"
               >
-                Members
-              </button>
+                <Users className="w-5 h-5" aria-hidden="true" />
+              </Link>
             )}
-          </nav>
+          </div>
 
-          {/* Zone 3: 1 Primary Action (+ Developer /admin shortcut) + Mobile Drawer Toggle */}
+          {/* Zone 3: Notifications + Primary Action (+ Developer /admin shortcut) */}
           <div className="flex items-center gap-2 shrink-0">
+            <NotificationBell />
             {currentUser?.role === 'developer' && (
               <button
                 type="button"
@@ -160,77 +142,9 @@ export function Header({
             >
               {getPrimaryLabel()}
             </button>
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen((v) => !v)}
-              className="lg:hidden p-2 rounded-lg border border-[#E2E5EB] dark:border-[#262B35] text-[#111318] dark:text-white cursor-pointer"
-              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            </button>
           </div>
         </div>
-
-        {/* Mobile Drawer */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-[#E2E5EB] dark:border-[#262B35] bg-white dark:bg-[#15181E] px-4 py-3 space-y-1 text-sm font-medium">
-            {navItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-[#111318] dark:text-slate-100 hover:text-[#B51B27]"
-              >
-                {item.label}
-              </a>
-            ))}
-            <a
-              href="#verify"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-[#111318] dark:text-slate-100 hover:text-[#B51B27]"
-            >
-              Verify Credentials &amp; Clubs
-            </a>
-            {currentUser && onNavigatePath && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onNavigatePath('/profile');
-                }}
-                className="flex w-full items-center gap-2 py-2 text-left text-[#111318] dark:text-slate-100 hover:text-[#B51B27] cursor-pointer"
-              >
-                <UserRound className="w-4 h-4 text-[#B51B27]" />
-                My Profile
-              </button>
-            )}
-            {currentUser && canManageMembers && onNavigatePath && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onNavigatePath('/members');
-                }}
-                className="flex w-full items-center gap-2 py-2 text-left text-[#111318] dark:text-slate-100 hover:text-[#B51B27] cursor-pointer"
-              >
-                <Users className="w-4 h-4 text-[#B51B27]" />
-                Manage Members
-              </button>
-            )}
-            <div className="pt-2 pb-1">
-              <PWAInstallButton variant="compact" />
-            </div>
-            <a
-              href="https://ulteriorengineering.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block py-2 text-[#5A6270] dark:text-slate-400 hover:text-[#B51B27]"
-            >
-              Back to Main Website
-            </a>
-          </div>
-        )}
+        {/* Mobile navigation lives in the fixed bottom tab bar (MobileBottomNav). */}
       </header>
     </>
   );
