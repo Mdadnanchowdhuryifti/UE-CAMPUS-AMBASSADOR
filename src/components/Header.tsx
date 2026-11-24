@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, Terminal, X } from 'lucide-react';
+import { Menu, Terminal, UserRound, Users, X } from 'lucide-react';
 import { Ambassador, PortalUser } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -10,6 +10,7 @@ interface HeaderProps {
   authLoading: boolean;
   onOpenAuthOrDashboard: () => void;
   onOpenAdminPage: () => void;
+  onNavigatePath?: (path: string) => void;
 }
 
 export function Header({
@@ -19,8 +20,14 @@ export function Header({
   authLoading,
   onOpenAuthOrDashboard,
   onOpenAdminPage,
+  onNavigatePath,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const canManageMembers =
+    currentUser?.role === 'chair' ||
+    currentUser?.role === 'secretary' ||
+    currentUser?.role === 'developer';
 
   const navItems = [
     { href: '#architecture', label: 'Architecture' },
@@ -113,6 +120,24 @@ export function Header({
                 {item.label}
               </a>
             ))}
+            {currentUser && onNavigatePath && (
+              <button
+                type="button"
+                onClick={() => onNavigatePath('/profile')}
+                className="hover:text-[#B51B27] dark:hover:text-white transition-colors whitespace-nowrap shrink-0 underline-offset-4 hover:underline cursor-pointer"
+              >
+                Profile
+              </button>
+            )}
+            {currentUser && canManageMembers && onNavigatePath && (
+              <button
+                type="button"
+                onClick={() => onNavigatePath('/members')}
+                className="hover:text-[#B51B27] dark:hover:text-white transition-colors whitespace-nowrap shrink-0 underline-offset-4 hover:underline cursor-pointer"
+              >
+                Members
+              </button>
+            )}
           </nav>
 
           {/* Zone 3: 1 Primary Action (+ Developer /admin shortcut) + Mobile Drawer Toggle */}
@@ -167,6 +192,32 @@ export function Header({
             >
               Verify Credentials &amp; Clubs
             </a>
+            {currentUser && onNavigatePath && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onNavigatePath('/profile');
+                }}
+                className="flex w-full items-center gap-2 py-2 text-left text-[#111318] dark:text-slate-100 hover:text-[#B51B27] cursor-pointer"
+              >
+                <UserRound className="w-4 h-4 text-[#B51B27]" />
+                My Profile
+              </button>
+            )}
+            {currentUser && canManageMembers && onNavigatePath && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onNavigatePath('/members');
+                }}
+                className="flex w-full items-center gap-2 py-2 text-left text-[#111318] dark:text-slate-100 hover:text-[#B51B27] cursor-pointer"
+              >
+                <Users className="w-4 h-4 text-[#B51B27]" />
+                Manage Members
+              </button>
+            )}
             <div className="pt-2 pb-1">
               <PWAInstallButton variant="compact" />
             </div>

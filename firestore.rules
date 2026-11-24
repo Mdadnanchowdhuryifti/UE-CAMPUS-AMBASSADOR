@@ -404,6 +404,42 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    // Public profile doc (users/{uid}): only non-sensitive fields.
+    // Writes use setDoc(..., merge), so validation checks the fields that are
+    // present and rejects any unknown field outright.
+    function isValidUserProfile(data) {
+      return data.keys().hasOnly(['displayName', 'photoURL', 'university', 'club', 'position', 'role', 'updatedAt'])
+        && (!data.keys().hasAny(['displayName']) || (data.displayName is string && data.displayName.size() <= 120))
+        && (!data.keys().hasAny(['photoURL']) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1000))
+        && (!data.keys().hasAny(['university']) || (data.university is string && data.university.size() <= 120))
+        && (!data.keys().hasAny(['club']) || (data.club is string && data.club.size() <= 120))
+        && (!data.keys().hasAny(['position']) || (data.position is string && data.position.size() <= 140))
+        && (!data.keys().hasAny(['role']) || isValidRole(data.role))
+        && (!data.keys().hasAny(['updatedAt']) || data.updatedAt is timestamp);
+    }
+
+    // Private profile doc (users/{uid}/private/info): phone, email, semester only.
+    function isValidUserPrivateInfo(data) {
+      return data.keys().hasOnly(['phone', 'email', 'semester', 'updatedAt'])
+        && (!data.keys().hasAny(['phone']) || (data.phone is string && data.phone.size() <= 40))
+        && (!data.keys().hasAny(['email']) || (data.email is string && data.email.size() <= 160))
+        && (!data.keys().hasAny(['semester']) || (data.semester is string && data.semester.size() <= 60))
+        && (!data.keys().hasAny(['updatedAt']) || data.updatedAt is timestamp);
+    }
+
+    // Chair / Secretary / CEO (privileged non-developer editors of user profiles)
+    function isChairSecretaryOrCeo() {
+      return hasRoleDoc() && roleDoc().role in ['chair', 'secretary', 'ceo'];
+    }
+
+    // True when the write neither grants nor removes the 'developer' role:
+    // a developer's profile may still have its other fields edited, and a
+    // non-developer may be moved between any non-developer roles.
+    function developerRoleNotGrantedOrRemoved() {
+      return (incoming().get('role', '') != 'developer' || existing().get('role', '') == 'developer')
+        && (existing().get('role', '') != 'developer' || incoming().get('role', '') == 'developer');
+    }
+
     // ==================== 0A. SYSTEM CONFIG (MAINTENANCE & EMERGENCY LOCKDOWN) ====================
     // Publicly readable (zero PII) so visitors see Maintenance / Lockdown immediately.
     // Strictly writable by role = developer ONLY.
@@ -515,7 +551,10 @@ service cloud.firestore {
         && (
           (isMainDeveloper() && incoming().role == 'developer') ||
           (isDeveloper() && !isMainDeveloperEmailKey(emailKey) && (isExecutiveRole(incoming().role) || isSubordinateRole(incoming().role))) ||
-          (isChairOrCeo() && !isMainDeveloperEmailKey(emailKey) && isSubordinateRole(incoming().role))
+          (isChairOrCeo() && !isMainDeveloperEmailKey(emailKey) && isSubordinateRole(incoming().role)) ||
+          // Chair / Secretary may also assign executive roles — but NEVER 'developer'
+          // (added so Secretary role sync from the Manage Members page can succeed).
+          ((isChairOrCeo() || isSecretary()) && !isMainDeveloperEmailKey(emailKey) && incoming().role != 'developer' && (isExecutiveRole(incoming().role) || isSubordinateRole(incoming().role)))
         );
       allow update: if isVerified()
         && isValidId(emailKey)
@@ -526,7 +565,10 @@ service cloud.firestore {
           (isMainDeveloper() && isMainDeveloperEmailKey(emailKey) && incoming().role == 'developer') ||
           (isMainDeveloper() && !isMainDeveloperEmailKey(emailKey)) ||
           (isDeveloper() && !isMainDeveloperEmailKey(emailKey) && existing().role != 'developer' && incoming().role != 'developer') ||
-          (isChairOrCeo() && !isMainDeveloperEmailKey(emailKey) && isSubordinateRole(existing().role) && isSubordinateRole(incoming().role))
+          (isChairOrCeo() && !isMainDeveloperEmailKey(emailKey) && isSubordinateRole(existing().role) && isSubordinateRole(incoming().role)) ||
+          // Chair / Secretary may move a non-developer member to any non-developer
+          // role (subordinate or executive) — the 'developer' role is never touched.
+          ((isChairOrCeo() || isSecretary()) && !isMainDeveloperEmailKey(emailKey) && existing().role != 'developer' && incoming().role != 'developer' && (isExecutiveRole(incoming().role) || isSubordinateRole(incoming().role)))
         );
       allow delete: if isVerified()
         && isValidId(emailKey)
@@ -775,6 +817,88 @@ service cloud.firestore {
           )
         );
       allow delete: if isVerified() && isValidId(pitchId) && isDeveloper();
+    }
+
+    // ==================== 12. USER PROFILES (PUBLIC) + PRIVATE INFO ====================
+    // users/{uid} holds ONLY public fields (name, photo, university, club,
+    // position, role). Phone / email / semester live in the private
+    // sub-document and are never readable by other members.
+    // Developer-role guard: Chair / Secretary / CEO can edit other profiles
+    // and change roles, but can NEVER set role == 'developer' and can NEVER
+    // modify a profile whose existing role == 'developer'.
+    match /users/{userId} {
+      allow get: if isVerified() && isValidId(userId);
+      allow list: if isVerified() && (isDeveloper() || isChairOrCeo() || isSecretary());
+      allow create: if isVerified()
+        && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && isWritePermitted()
+        && (
+          // Developer (Tier 0) may create any profile.
+          isDeveloper() ||
+          // Chair / Secretary / CEO may create another user's profile — never with the developer role.
+          (isChairSecretaryOrCeo() && (!incoming().keys().hasAny(['role']) || incoming().role != 'developer')) ||
+          // Owner creating their own profile: role must be 'ca' or match their role_assignments role.
+          (
+            request.auth.uid == userId
+            && (
+              !incoming().keys().hasAny(['role'])
+              || incoming().role == 'ca'
+              || (hasRoleDoc() && incoming().role == roleDoc().role)
+            )
+          )
+        );
+      allow update: if isVerified()
+        && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && isWritePermitted()
+        && (
+          // Developer (Tier 0) may update any profile.
+          isDeveloper() ||
+          // Chair / Secretary / CEO may update others — never granting or
+          // removing the developer role (other fields of a developer's
+          // profile may still be edited).
+          (
+            isChairSecretaryOrCeo()
+            && developerRoleNotGrantedOrRemoved()
+          ) ||
+          // Owner updating their own profile: their role field may not change.
+          (
+            request.auth.uid == userId
+            && (
+              !incoming().keys().hasAny(['role'])
+              || !existing().keys().hasAny(['role'])
+              || incoming().role == existing().role
+            )
+          )
+        );
+      allow delete: if isVerified() && isValidId(userId) && isDeveloper();
+
+      // Private info: phone / email / semester.
+      // Readable and writable ONLY by the owner, Chair, Secretary and
+      // developer. No other user may ever read or write this document.
+      match /private/{docId} {
+        allow get: if isVerified()
+          && docId == 'info'
+          && (
+            request.auth.uid == userId
+            || isDeveloper()
+            || isSecretary()
+            || (hasRoleDoc() && roleDoc().role == 'chair')
+          );
+        allow list: if false;
+        allow create, update: if isVerified()
+          && docId == 'info'
+          && isValidUserPrivateInfo(incoming())
+          && isWritePermitted()
+          && (
+            request.auth.uid == userId
+            || isDeveloper()
+            || isSecretary()
+            || (hasRoleDoc() && roleDoc().role == 'chair')
+          );
+        allow delete: if isVerified() && docId == 'info' && isDeveloper();
+      }
     }
   }
 }

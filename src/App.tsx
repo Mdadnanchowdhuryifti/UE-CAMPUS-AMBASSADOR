@@ -101,6 +101,8 @@ import { LeaderboardSection } from './components/LeaderboardSection';
 import { WorkshopsAndVerifySection } from './components/WorkshopsAndVerifySection';
 import { RoleDashboard } from './components/RoleDashboard';
 import { AdminPage } from './components/AdminPage';
+import { ProfilePage } from './components/ProfilePage';
+import { MembersPage } from './components/MembersPage';
 import {
   AccountBlockedModal,
   MaintenanceScreen,
@@ -167,10 +169,12 @@ export default function App() {
   const toastTimerRef = useRef<number | null>(null);
 
   const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+  const isProfileRoute = pathname === '/profile' || pathname.startsWith('/profile');
+  const isMembersRoute = pathname === '/members' || pathname.startsWith('/members');
 
   const navigateTo = (nextPath: string) => {
     const clean = nextPath.startsWith('/') ? nextPath : `/${nextPath}`;
-    if (window.location.pathname !== clean) {
+    if (`${window.location.pathname}${window.location.search}` !== clean) {
       window.history.pushState({}, '', clean);
     }
     setPathname(clean);
@@ -1273,6 +1277,71 @@ export default function App() {
     );
   }
 
+  // ROUTE 1B: /profile — signed-in member profile (own or ?uid=<uid> for another member)
+  // Rendered before the maintenance gate, like /admin, so members can always reach it.
+  if (isProfileRoute) {
+    return (
+      <>
+        <ProfilePage
+          key={pathname}
+          currentUser={currentUser}
+          authLoading={authLoading}
+          onNavigateHome={() => navigateTo('/')}
+          onNavigateMembers={() => navigateTo('/members')}
+          onNotify={showToast}
+          onSignIn={() => void handleGoogleSignIn('standard')}
+        />
+
+        {toastMsg && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed top-20 right-4 z-[70] max-w-sm bg-[#111318] text-white text-xs font-medium px-4 py-3 rounded-lg shadow-xl border border-[#262B35]"
+          >
+            {toastMsg}
+          </div>
+        )}
+
+        <AccountBlockedModal
+          notice={blockedNotice}
+          onDismiss={() => setBlockedNotice(null)}
+        />
+      </>
+    );
+  }
+
+  // ROUTE 1C: /members — Manage Members (Chair / Secretary / developer only; page enforces)
+  if (isMembersRoute) {
+    return (
+      <>
+        <MembersPage
+          key={pathname}
+          currentUser={currentUser}
+          authLoading={authLoading}
+          portalData={portalData}
+          onNavigateHome={() => navigateTo('/')}
+          onOpenProfile={(uid) => navigateTo(`/profile?uid=${encodeURIComponent(uid)}`)}
+          onNotify={showToast}
+        />
+
+        {toastMsg && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed top-20 right-4 z-[70] max-w-sm bg-[#111318] text-white text-xs font-medium px-4 py-3 rounded-lg shadow-xl border border-[#262B35]"
+          >
+            {toastMsg}
+          </div>
+        )}
+
+        <AccountBlockedModal
+          notice={blockedNotice}
+          onDismiss={() => setBlockedNotice(null)}
+        />
+      </>
+    );
+  }
+
   // ROUTE 2: Maintenance Mode Gate (Everyone except role = developer sees Maintenance Page)
   if (systemConfig.maintenanceMode && !isDeveloper) {
     return (
@@ -1317,6 +1386,7 @@ export default function App() {
         authLoading={authLoading}
         onOpenAuthOrDashboard={() => handleOpenAuthOrDashboard('standard')}
         onOpenAdminPage={() => navigateTo('/admin')}
+        onNavigatePath={navigateTo}
       />
 
       <main>

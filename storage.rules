@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Profile photos: exactly one file per user, profile-photos/{uid}.jpg.
+    // The app crops uploads to a 512x512 JPEG before upload, so files are
+    // far below the 2 MB cap enforced here.
+    match /profile-photos/{photoFile} {
+      // Signed-in portal members can view profile photos.
+      allow read: if request.auth != null && photoFile.matches('^[a-zA-Z0-9_\\-]+\\.jpg$');
+
+      // Only the owner can write their own photo, it must be a JPEG,
+      // and it must be under 2 MB.
+      allow write: if request.auth != null
+        && photoFile == request.auth.uid + '.jpg'
+        && request.resource.contentType == 'image/jpeg'
+        && request.resource.size < 2 * 1024 * 1024;
+
+      allow delete: if request.auth != null && photoFile == request.auth.uid + '.jpg';
+    }
+  }
+}
