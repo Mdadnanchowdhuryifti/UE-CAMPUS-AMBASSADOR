@@ -1,0 +1,909 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net — Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ==================== PRIMITIVES & IDENTITY HELPERS ====================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+
+    function emailToKey(email) {
+      return email.lower().replace('@', '_at_').replace('\\.', '_dot_').replace('\\+', '_plus_');
+    }
+
+    function normalizedEmailKey() {
+      return emailToKey(request.auth.token.email);
+    }
+
+    // Tier 0A: Main Developer Root — STRICTLY locked to the two primary developer emails
+    function isMainDeveloper() {
+      return isVerified()
+        && request.auth.token.email.lower() in [
+          'adnanchowdhury477@gmail.com',
+          'mdadnanchowdhuryifti@gmail.com'
+        ];
+    }
+
+    function isMainDeveloperEmailKey(emailKey) {
+      return emailKey in [
+        'adnanchowdhury477_at_gmail_dot_com',
+        'mdadnanchowdhuryifti_at_gmail_dot_com'
+      ];
+    }
+
+    function isSecondaryDeveloperEmailKey(emailKey) {
+      return exists(/databases/$(database)/documents/role_assignments/$(emailKey))
+        && get(/databases/$(database)/documents/role_assignments/$(emailKey)).data.role == 'developer';
+    }
+
+    function isUserBlocked() {
+      return isVerified()
+        && !isMainDeveloper()
+        && exists(/databases/$(database)/documents/user_moderation/$(normalizedEmailKey()))
+        && get(/databases/$(database)/documents/user_moderation/$(normalizedEmailKey())).data.status in ['suspended', 'banned'];
+    }
+
+    function isSystemLockedDown() {
+      return exists(/databases/$(database)/documents/config/system)
+        && get(/databases/$(database)/documents/config/system).data.emergencyLockdown == true;
+    }
+
+    function hasUserProfile() {
+      return isVerified()
+        && !isUserBlocked()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRoleDoc() {
+      return isVerified()
+        && !isUserBlocked()
+        && exists(/databases/$(database)/documents/role_assignments/$(normalizedEmailKey()));
+    }
+
+    function roleDoc() {
+      return get(/databases/$(database)/documents/role_assignments/$(normalizedEmailKey())).data;
+    }
+
+    // Tier 0: Platform Developer (Assigned manually in Firebase Console on users/{uid}, or Main Developer bootstrap)
+    function isDeveloper() {
+      return isMainDeveloper()
+        || (hasUserProfile() && userProfile().role == 'developer')
+        || (hasRoleDoc() && roleDoc().role == 'developer');
+    }
+
+    // Global Write Gate: Developers bypass Emergency Lockdown; all others are blocked during Lockdown or Suspension/Ban
+    function isWritePermitted() {
+      return isDeveloper() || (!isSystemLockedDown() && !isUserBlocked());
+    }
+
+    // Tier 1: Program Chair & Company CEO
+    function isChairOrCeo() {
+      return (hasUserProfile() && userProfile().role == 'chair')
+        || (hasRoleDoc() && roleDoc().role in ['chair', 'ceo']);
+    }
+
+    // Full Operational Access: Developers, Program Chair, and Company CEO
+    function isFullAccess() {
+      return isDeveloper() || isChairOrCeo();
+    }
+
+    function isSecretary() {
+      return (hasUserProfile() && userProfile().role == 'secretary')
+        || (hasRoleDoc() && roleDoc().role == 'secretary');
+    }
+
+    function isSpecificLead(leadRole) {
+      return hasRoleDoc() && roleDoc().role == leadRole;
+    }
+
+    function isAssignedSquadLead(squad) {
+      return hasRoleDoc() && (
+        (roleDoc().role == 'lead1' && squad == 'Squad A') ||
+        (roleDoc().role == 'lead2' && squad == 'Squad B') ||
+        (roleDoc().role == 'lead3' && squad == 'Squad C') ||
+        (roleDoc().role == 'lead4' && squad == 'Squad D') ||
+        (roleDoc().role == 'lead5' && squad == 'Squad E')
+      );
+    }
+
+    function isAnyAssignedMember() {
+      return isMainDeveloper() || hasRoleDoc() || (hasUserProfile() && userProfile().profileComplete == true);
+    }
+
+    function isValidSquad(s) {
+      return s is string && s in ['Squad A', 'Squad B', 'Squad C', 'Squad D', 'Squad E'];
+    }
+
+    function isValidAppRole(r) {
+      return r is string && r in ['developer', 'chair', 'secretary', 'lead', 'ambassador'];
+    }
+
+    function isValidRole(r) {
+      return r is string && r in ['developer', 'chair', 'ceo', 'secretary', 'lead1', 'lead2', 'lead3', 'lead4', 'lead5', 'ca'];
+    }
+
+    function isExecutiveRole(r) {
+      return r is string && r in ['chair', 'ceo'];
+    }
+
+    function isSubordinateRole(r) {
+      return r is string && r in ['secretary', 'lead1', 'lead2', 'lead3', 'lead4', 'lead5', 'ca'];
+    }
+
+    function isValidRecruitmentStatus(rs) {
+      return rs is map
+        && rs.keys().hasAll(['secretary', 'lead1', 'lead2', 'lead3', 'lead4', 'lead5', 'ca'])
+        && rs.keys().hasOnly(['secretary', 'lead1', 'lead2', 'lead3', 'lead4', 'lead5', 'ca'])
+        && rs.secretary is bool
+        && rs.lead1 is bool
+        && rs.lead2 is bool
+        && rs.lead3 is bool
+        && rs.lead4 is bool
+        && rs.lead5 is bool
+        && rs.ca is bool;
+    }
+
+    function isValidApplicationRole(roleTitle) {
+      return roleTitle is string && roleTitle in [
+        'Program Secretary',
+        'Operations & CA HR Lead',
+        'Workshop & Course Growth Lead',
+        'Technical Project & Lead-Gen Lead',
+        'Brand & Digital Publicity Lead',
+        'Campus Partnerships & Events Lead',
+        'General Campus Ambassador'
+      ];
+    }
+
+    function isRoleOpenInMap(rs, roleTitle) {
+      return (roleTitle == 'Program Secretary' && rs.secretary == true)
+        || (roleTitle == 'Operations & CA HR Lead' && rs.lead1 == true)
+        || (roleTitle == 'Workshop & Course Growth Lead' && rs.lead2 == true)
+        || (roleTitle == 'Technical Project & Lead-Gen Lead' && rs.lead3 == true)
+        || (roleTitle == 'Brand & Digital Publicity Lead' && rs.lead4 == true)
+        || (roleTitle == 'Campus Partnerships & Events Lead' && rs.lead5 == true)
+        || (roleTitle == 'General Campus Ambassador' && rs.ca == true);
+    }
+
+    function isRecruitmentOpenForRole(roleTitle) {
+      return !exists(/databases/$(database)/documents/settings/program)
+        || !('recruitmentStatus' in get(/databases/$(database)/documents/settings/program).data)
+        || isRoleOpenInMap(get(/databases/$(database)/documents/settings/program).data.recruitmentStatus, roleTitle);
+    }
+
+    function isValidSingleMetricIncrement(inc, ext) {
+      return inc.workshopRegs >= ext.workshopRegs && inc.workshopRegs <= ext.workshopRegs + 1
+        && inc.techLeads >= ext.techLeads && inc.techLeads <= ext.techLeads + 1
+        && inc.brandPosts >= ext.brandPosts && inc.brandPosts <= ext.brandPosts + 1
+        && inc.clubEvents >= ext.clubEvents && inc.clubEvents <= ext.clubEvents + 1
+        && ((inc.workshopRegs - ext.workshopRegs)
+          + (inc.techLeads - ext.techLeads)
+          + (inc.brandPosts - ext.brandPosts)
+          + (inc.clubEvents - ext.clubEvents)) == 1;
+    }
+
+    // ==================== VALIDATION BLUEPRINTS ====================
+    function isValidPublicUserProfile(data) {
+      return data.keys().hasAll(['fullName', 'photoURL', 'university', 'club', 'position', 'tier', 'role', 'createdAt', 'profileComplete'])
+        && data.keys().hasOnly(['fullName', 'photoURL', 'university', 'club', 'position', 'tier', 'role', 'createdAt', 'profileComplete'])
+        && data.fullName is string && data.fullName.size() <= 120
+        && data.photoURL is string && data.photoURL.size() <= 512
+        && data.university is string && data.university.size() <= 120
+        && data.club is string && data.club.size() <= 120
+        && data.position is string && data.position.size() <= 100
+        && data.tier is string && data.tier.size() <= 60
+        && isValidAppRole(data.role)
+        && data.createdAt is timestamp
+        && data.profileComplete is bool
+        && (
+          data.profileComplete == false || (
+            data.fullName.size() >= 2
+            && data.university.size() >= 2
+            && data.club.size() >= 2
+            && data.position.size() >= 2
+            && data.tier.size() >= 2
+          )
+        );
+    }
+
+    function isValidPrivateUserInfo(data) {
+      return data.keys().hasAll(['phone', 'email', 'semester'])
+        && data.keys().hasOnly(['phone', 'email', 'semester'])
+        && data.phone is string && data.phone.size() <= 24 && data.phone.matches('^$|^[+]?[0-9\\s\\-()]{8,20}$')
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && data.semester is string && data.semester.size() <= 40;
+    }
+
+    function isValidSystemConfig(data) {
+      return data.keys().hasAll(['maintenanceMode', 'maintenanceMessage', 'emergencyLockdown', 'lockdownMessage', 'lockdownEpoch', 'updatedByName', 'updatedByUid', 'updatedAt'])
+        && data.keys().hasOnly(['maintenanceMode', 'maintenanceMessage', 'emergencyLockdown', 'lockdownMessage', 'lockdownEpoch', 'updatedByName', 'updatedByUid', 'updatedAt'])
+        && data.maintenanceMode is bool
+        && data.maintenanceMessage is string && data.maintenanceMessage.size() >= 5 && data.maintenanceMessage.size() <= 500
+        && data.emergencyLockdown is bool
+        && data.lockdownMessage is string && data.lockdownMessage.size() >= 5 && data.lockdownMessage.size() <= 500
+        && data.lockdownEpoch is number && data.lockdownEpoch >= 0
+        && data.updatedByName is string && data.updatedByName.size() >= 2 && data.updatedByName.size() <= 120
+        && data.updatedByUid is string && data.updatedByUid.size() >= 4 && data.updatedByUid.size() <= 128
+        && data.updatedAt == request.time;
+    }
+
+    function isValidUserModeration(data) {
+      return data.keys().hasAll(['email', 'displayName', 'status', 'reason', 'updatedByName', 'updatedByUid', 'updatedAt'])
+        && data.keys().hasOnly(['email', 'displayName', 'status', 'reason', 'updatedByName', 'updatedByUid', 'updatedAt'])
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && data.displayName is string && data.displayName.size() <= 120
+        && data.status is string && data.status in ['active', 'suspended', 'banned']
+        && data.reason is string && data.reason.size() >= 3 && data.reason.size() <= 500
+        && data.updatedByName is string && data.updatedByName.size() >= 2 && data.updatedByName.size() <= 120
+        && data.updatedByUid is string && data.updatedByUid.size() >= 4 && data.updatedByUid.size() <= 128
+        && data.updatedAt == request.time;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['actorUid', 'actorEmail', 'actorName', 'action', 'target', 'details', 'createdAt'])
+        && data.keys().hasOnly(['actorUid', 'actorEmail', 'actorName', 'action', 'target', 'details', 'createdAt'])
+        && data.actorUid is string && data.actorUid.size() >= 4 && data.actorUid.size() <= 128
+        && data.actorEmail is string && data.actorEmail.size() >= 5 && data.actorEmail.size() <= 160
+        && data.actorName is string && data.actorName.size() >= 2 && data.actorName.size() <= 120
+        && data.action is string && data.action in [
+          'MAINTENANCE_ENABLED',
+          'MAINTENANCE_DISABLED',
+          'LOCKDOWN_ENABLED',
+          'LOCKDOWN_DISABLED',
+          'USER_SUSPENDED',
+          'USER_BANNED',
+          'USER_RESTORED',
+          'ROLE_REVOKED',
+          'ROLE_ASSIGNED',
+          'ERROR_LOG_RESOLVED',
+          'ERROR_LOG_DELETED',
+          'SYSTEM_CONFIG_UPDATED'
+        ]
+        && data.target is string && data.target.size() >= 1 && data.target.size() <= 160
+        && data.details is string && data.details.size() >= 2 && data.details.size() <= 1000
+        && data.createdAt is timestamp;
+    }
+
+    function isValidErrorLog(data) {
+      return data.keys().hasAll(['source', 'severity', 'message', 'path', 'operation', 'userUid', 'userEmail', 'resolved', 'createdAt'])
+        && data.keys().hasOnly(['source', 'severity', 'message', 'path', 'operation', 'userUid', 'userEmail', 'resolved', 'createdAt'])
+        && data.source is string && data.source in ['firestore', 'runtime', 'unhandled_rejection', 'auth', 'ui_boundary', 'admin']
+        && data.severity is string && data.severity in ['error', 'warning', 'critical']
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 1000
+        && data.path is string && data.path.size() <= 200
+        && data.operation is string && data.operation.size() <= 40
+        && data.userUid is string && data.userUid.size() >= 4 && data.userUid.size() <= 128
+        && data.userEmail is string && data.userEmail.size() <= 160
+        && data.resolved is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidProgramSettings(data) {
+      return data.keys().hasAll(['workshopReg', 'techLead', 'brandPost', 'clubEvent', 'certThreshold', 'secretaryName', 'updatedAt'])
+        && data.keys().hasOnly(['workshopReg', 'techLead', 'brandPost', 'clubEvent', 'certThreshold', 'secretaryName', 'chairName', 'ceoName', 'recruitmentStatus', 'updatedAt'])
+        && data.workshopReg is number && data.workshopReg >= 0 && data.workshopReg <= 500
+        && data.techLead is number && data.techLead >= 0 && data.techLead <= 1000
+        && data.brandPost is number && data.brandPost >= 0 && data.brandPost <= 200
+        && data.clubEvent is number && data.clubEvent >= 0 && data.clubEvent <= 500
+        && data.certThreshold is number && data.certThreshold >= 10 && data.certThreshold <= 10000
+        && data.secretaryName is string && data.secretaryName.size() >= 2 && data.secretaryName.size() <= 120
+        && (!('chairName' in data) || (data.chairName is string && data.chairName.size() >= 2 && data.chairName.size() <= 120))
+        && (!('ceoName' in data) || (data.ceoName is string && data.ceoName.size() >= 2 && data.ceoName.size() <= 120))
+        && (!('recruitmentStatus' in data) || isValidRecruitmentStatus(data.recruitmentStatus))
+        && data.updatedAt == request.time;
+    }
+
+    function isValidRoleAssignment(data) {
+      return data.keys().hasAll(['email', 'displayName', 'role', 'squad', 'caCode', 'campus', 'assignedBy', 'updatedAt'])
+        && data.keys().hasOnly(['email', 'displayName', 'role', 'squad', 'caCode', 'campus', 'assignedBy', 'updatedAt'])
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 120
+        && isValidRole(data.role)
+        && data.squad is string && data.squad in ['ALL', 'Squad A', 'Squad B', 'Squad C', 'Squad D', 'Squad E']
+        && data.caCode is string && data.caCode.size() <= 32 && data.caCode.matches('^[A-Z0-9\\-]*$')
+        && data.campus is string && data.campus.size() <= 120
+        && data.assignedBy is string && data.assignedBy.size() >= 3 && data.assignedBy.size() <= 128
+        && data.updatedAt == request.time;
+    }
+
+    function isValidAmbassador(data) {
+      return data.keys().hasAll(['name', 'campus', 'squad', 'code', 'workshopRegs', 'techLeads', 'brandPosts', 'clubEvents', 'status', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'campus', 'squad', 'code', 'workshopRegs', 'techLeads', 'brandPosts', 'clubEvents', 'status', 'updatedAt'])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 120
+        && data.campus is string && data.campus.size() >= 2 && data.campus.size() <= 120
+        && isValidSquad(data.squad)
+        && data.code is string && data.code.size() >= 3 && data.code.size() <= 32 && data.code.matches('^[A-Z0-9\\-]+$')
+        && data.workshopRegs is number && data.workshopRegs >= 0 && data.workshopRegs <= 5000
+        && data.techLeads is number && data.techLeads >= 0 && data.techLeads <= 5000
+        && data.brandPosts is number && data.brandPosts >= 0 && data.brandPosts <= 5000
+        && data.clubEvents is number && data.clubEvents >= 0 && data.clubEvents <= 5000
+        && data.status is string && data.status in ['Active', 'Inactive']
+        && data.updatedAt == request.time;
+    }
+
+    function isValidWorkshop(data) {
+      return data.keys().hasAll(['title', 'date', 'mode', 'fee', 'seats', 'regs', 'tag', 'createdAt'])
+        && data.keys().hasOnly(['title', 'date', 'mode', 'fee', 'seats', 'regs', 'tag', 'createdAt'])
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 160
+        && data.date is string && data.date.size() >= 3 && data.date.size() <= 60
+        && data.mode is string && data.mode.size() >= 2 && data.mode.size() <= 80
+        && data.fee is string && data.fee.size() >= 2 && data.fee.size() <= 60
+        && data.seats is number && data.seats >= 1 && data.seats <= 5000
+        && data.regs is number && data.regs >= 0 && data.regs <= 5000
+        && data.tag is string && data.tag.size() >= 2 && data.tag.size() <= 60
+        && data.createdAt is timestamp;
+    }
+
+    function isValidWorkshopRegistration(data) {
+      return data.keys().hasAll(['workshopId', 'workshopTitle', 'participantName', 'university', 'email', 'refCode', 'registrarUid', 'createdAt'])
+        && data.keys().hasOnly(['workshopId', 'workshopTitle', 'participantName', 'university', 'email', 'refCode', 'registrarUid', 'createdAt'])
+        && isValidId(data.workshopId)
+        && data.workshopTitle is string && data.workshopTitle.size() >= 2 && data.workshopTitle.size() <= 160
+        && data.participantName is string && data.participantName.size() >= 2 && data.participantName.size() <= 120
+        && data.university is string && data.university.size() >= 2 && data.university.size() <= 120
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && data.refCode is string && data.refCode.size() <= 32 && data.refCode.matches('^[A-Z0-9\\-]*$')
+        && data.registrarUid is string && data.registrarUid.size() >= 4 && data.registrarUid.size() <= 128
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSubmission(data) {
+      return data.keys().hasAll(['caCode', 'caName', 'submitterUid', 'squad', 'type', 'detail', 'date', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['caCode', 'caName', 'submitterUid', 'squad', 'type', 'detail', 'date', 'status', 'createdAt', 'updatedAt'])
+        && data.caCode is string && data.caCode.size() >= 3 && data.caCode.size() <= 32 && data.caCode.matches('^[A-Z0-9\\-]+$')
+        && data.caName is string && data.caName.size() >= 2 && data.caName.size() <= 120
+        && data.submitterUid is string && data.submitterUid.size() >= 4 && data.submitterUid.size() <= 128
+        && isValidSquad(data.squad)
+        && data.type is string && data.type in ['Workshop Reg', 'Tech Lead', 'Brand Post']
+        && data.detail is string && data.detail.size() >= 5 && data.detail.size() <= 1000
+        && data.date is string && data.date.size() >= 8 && data.date.size() <= 20
+        && data.status is string && data.status in ['Pending', 'Approved', 'Rejected']
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidTechLead(data) {
+      return data.keys().hasAll(['title', 'campus', 'submittedBy', 'submitterUid', 'stage', 'value', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'campus', 'submittedBy', 'submitterUid', 'stage', 'value', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 160
+        && data.campus is string && data.campus.size() >= 2 && data.campus.size() <= 120
+        && data.submittedBy is string && data.submittedBy.size() >= 2 && data.submittedBy.size() <= 120
+        && data.submitterUid is string && data.submitterUid.size() >= 4 && data.submitterUid.size() <= 128
+        && data.stage is string && data.stage in ['New', 'Qualified', 'Handoff to UE']
+        && data.value is string && data.value.size() >= 2 && data.value.size() <= 120
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidCampaignKit(data) {
+      return data.keys().hasAll(['title', 'author', 'date', 'copy', 'createdByUid', 'createdAt'])
+        && data.keys().hasOnly(['title', 'author', 'date', 'copy', 'createdByUid', 'createdAt'])
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 160
+        && data.author is string && data.author.size() >= 2 && data.author.size() <= 120
+        && data.date is string && data.date.size() >= 8 && data.date.size() <= 20
+        && data.copy is string && data.copy.size() >= 5 && data.copy.size() <= 2000
+        && data.createdByUid is string && data.createdByUid.size() >= 4 && data.createdByUid.size() <= 128
+        && data.createdAt is timestamp;
+    }
+
+    function isValidApplication(data) {
+      return data.keys().hasAll(['name', 'role', 'campus', 'squad', 'email', 'applicantUid', 'exp', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'role', 'campus', 'squad', 'email', 'applicantUid', 'exp', 'status', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 120
+        && isValidApplicationRole(data.role)
+        && data.campus is string && data.campus.size() >= 2 && data.campus.size() <= 120
+        && isValidSquad(data.squad)
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && data.applicantUid is string && data.applicantUid.size() >= 4 && data.applicantUid.size() <= 128
+        && data.exp is string && data.exp.size() >= 5 && data.exp.size() <= 1500
+        && data.status is string && data.status in ['Pending', 'Approved', 'Rejected']
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidCertificate(data) {
+      return data.keys().hasAll(['holder', 'role', 'campus', 'issued', 'status', 'createdAt'])
+        && data.keys().hasOnly(['holder', 'role', 'campus', 'issued', 'status', 'createdAt'])
+        && data.holder is string && data.holder.size() >= 2 && data.holder.size() <= 120
+        && data.role is string && data.role.size() >= 3 && data.role.size() <= 140
+        && data.campus is string && data.campus.size() >= 2 && data.campus.size() <= 120
+        && data.issued is string && data.issued.size() >= 8 && data.issued.size() <= 20
+        && data.status is string && data.status in ['Valid', 'Revoked']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidClubPitch(data) {
+      return data.keys().hasAll(['club', 'university', 'contact', 'type', 'date', 'status', 'submitterUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['club', 'university', 'contact', 'type', 'date', 'status', 'submitterUid', 'createdAt', 'updatedAt'])
+        && data.club is string && data.club.size() >= 2 && data.club.size() <= 120
+        && data.university is string && data.university.size() >= 2 && data.university.size() <= 120
+        && data.contact is string && data.contact.size() >= 3 && data.contact.size() <= 160
+        && data.type is string && data.type.size() >= 3 && data.type.size() <= 100
+        && data.date is string && data.date.size() >= 8 && data.date.size() <= 20
+        && data.status is string && data.status in ['New', 'In Review', 'Confirmed']
+        && data.submitterUid is string && data.submitterUid.size() >= 4 && data.submitterUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    // ==================== 0. USER PROFILES (SPLIT PUBLIC + PRIVATE PII) ====================
+    // Public non-PII data ONLY: fullName, photoURL, university, club, position, tier, role, createdAt, profileComplete.
+    // Users NEVER set or change their own role; 'developer' is assigned manually in the Firebase Console only.
+    match /users/{uid} {
+      allow get: if isVerified() && isValidId(uid) && (
+        uid == request.auth.uid || isFullAccess() || isSecretary() || existing().profileComplete == true
+      );
+      allow list: if isVerified() && (
+        isFullAccess() || isSecretary() || resource.data.profileComplete == true
+      );
+      allow create: if isVerified()
+        && isValidId(uid)
+        && uid == request.auth.uid
+        && isValidPublicUserProfile(incoming())
+        && incoming().role == 'ambassador'
+        && incoming().profileComplete == false
+        && incoming().createdAt == request.time
+        && isWritePermitted()
+        && existsAfter(/databases/$(database)/documents/users/$(uid)/private/info);
+      allow update: if isVerified()
+        && isValidId(uid)
+        && isValidPublicUserProfile(incoming())
+        && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
+        && (
+          // Action 1: Owner updates own profile fields / completes onboarding (role is strictly immutable)
+          (
+            uid == request.auth.uid
+            && incoming().role == existing().role
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'fullName', 'photoURL', 'university', 'club', 'position', 'tier', 'profileComplete'
+            ])
+          ) ||
+          // Action 2: Developer or Chair changes ANOTHER user's non-developer role (never self, never developer)
+          (
+            isFullAccess()
+            && uid != request.auth.uid
+            && existing().role != 'developer'
+            && incoming().role != 'developer'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['role'])
+          )
+        );
+      allow delete: if false;
+
+      // Private PII subcollection: strictly doc ID "info" with phone, email, semester
+      match /private/{docId} {
+        allow get: if isVerified()
+          && isValidId(uid)
+          && docId == 'info'
+          && (uid == request.auth.uid || isDeveloper());
+        allow list: if false;
+        allow create: if isVerified()
+          && isValidId(uid)
+          && docId == 'info'
+          && uid == request.auth.uid
+          && isValidPrivateUserInfo(incoming())
+          && incoming().email.lower() == request.auth.token.email.lower()
+          && existsAfter(/databases/$(database)/documents/users/$(uid))
+          && isWritePermitted();
+        allow update: if isVerified()
+          && isValidId(uid)
+          && docId == 'info'
+          && uid == request.auth.uid
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && isValidPrivateUserInfo(incoming())
+          && incoming().email == existing().email
+          && incoming().phone.size() >= 8
+          && incoming().semester.size() >= 1
+          && incoming().diff(existing()).affectedKeys().hasOnly(['phone', 'semester'])
+          && isWritePermitted();
+        allow delete: if false;
+      }
+    }
+
+    // ==================== 0A. SYSTEM CONFIG (MAINTENANCE & EMERGENCY LOCKDOWN) ====================
+    // Publicly readable (zero PII) so visitors see Maintenance / Lockdown immediately.
+    // Strictly writable by role = developer ONLY.
+    match /config/{configId} {
+      allow get: if isValidId(configId) && configId == 'system';
+      allow list: if false;
+      allow create: if isVerified()
+        && isValidId(configId)
+        && configId == 'system'
+        && isValidSystemConfig(incoming())
+        && incoming().updatedByUid == request.auth.uid
+        && isDeveloper();
+      allow update: if isVerified()
+        && isValidId(configId)
+        && configId == 'system'
+        && isValidSystemConfig(incoming())
+        && incoming().updatedByUid == request.auth.uid
+        && isDeveloper();
+      allow delete: if false;
+    }
+
+    // ==================== 0B. USER MODERATION (SUSPEND / BAN REGISTRY) ====================
+    // Affected user can read own status (for real-time forced sign-out & notice); Developers can manage all.
+    // Main Developer accounts can NEVER be suspended or banned.
+    match /user_moderation/{emailKey} {
+      allow get: if isVerified() && isValidId(emailKey) && (emailKey == normalizedEmailKey() || isDeveloper());
+      allow list: if isVerified() && isDeveloper();
+      allow create: if isVerified()
+        && isValidId(emailKey)
+        && isValidUserModeration(incoming())
+        && emailKey == emailToKey(incoming().email)
+        && incoming().updatedByUid == request.auth.uid
+        && !isMainDeveloperEmailKey(emailKey)
+        && (isMainDeveloper() || (isDeveloper() && !isSecondaryDeveloperEmailKey(emailKey)));
+      allow update: if isVerified()
+        && isValidId(emailKey)
+        && isValidUserModeration(incoming())
+        && emailKey == emailToKey(incoming().email)
+        && incoming().updatedByUid == request.auth.uid
+        && !isMainDeveloperEmailKey(emailKey)
+        && (isMainDeveloper() || (isDeveloper() && !isSecondaryDeveloperEmailKey(emailKey)));
+      allow delete: if isVerified()
+        && isValidId(emailKey)
+        && !isMainDeveloperEmailKey(emailKey)
+        && (isMainDeveloper() || (isDeveloper() && !isSecondaryDeveloperEmailKey(emailKey)));
+    }
+
+    // ==================== 0C. IMMUTABLE DEVELOPER AUDIT LOGS ====================
+    match /audit_logs/{logId} {
+      allow get: if isVerified() && isValidId(logId) && isDeveloper();
+      allow list: if isVerified() && isDeveloper();
+      allow create: if isVerified()
+        && isValidId(logId)
+        && isValidAuditLog(incoming())
+        && incoming().actorUid == request.auth.uid
+        && incoming().actorEmail.lower() == request.auth.token.email.lower()
+        && incoming().createdAt == request.time
+        && isDeveloper();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ==================== 0D. SYSTEM ERROR LOGS ====================
+    match /error_logs/{errorId} {
+      allow get: if isVerified() && isValidId(errorId) && isDeveloper();
+      allow list: if isVerified() && isDeveloper();
+      allow create: if isVerified()
+        && isValidId(errorId)
+        && isValidErrorLog(incoming())
+        && incoming().userUid == request.auth.uid
+        && incoming().userEmail.lower() == request.auth.token.email.lower()
+        && incoming().resolved == false
+        && incoming().createdAt == request.time
+        && isWritePermitted();
+      allow update: if isVerified()
+        && isValidId(errorId)
+        && isValidErrorLog(incoming())
+        && incoming().userUid == existing().userUid
+        && incoming().userEmail == existing().userEmail
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['resolved'])
+        && isDeveloper();
+      allow delete: if isVerified() && isValidId(errorId) && isDeveloper();
+    }
+
+    // ==================== 1. PROGRAM SETTINGS ====================
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow create: if isVerified() && isValidId(settingId) && settingId == 'program' && isValidProgramSettings(incoming()) && isDeveloper();
+      allow update: if isVerified() && isValidId(settingId) && settingId == 'program' && isValidProgramSettings(incoming()) && isWritePermitted() && (
+        isDeveloper() ||
+        (
+          isChairOrCeo()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['workshopReg', 'techLead', 'brandPost', 'clubEvent', 'certThreshold', 'secretaryName', 'recruitmentStatus', 'updatedAt'])
+        )
+      );
+      allow delete: if false;
+    }
+
+    // ==================== 2. ROLE ASSIGNMENTS (PII + RBAC MASTER) ====================
+    // 'developer' role is NEVER assignable from the client UI; users NEVER change their own role.
+    match /role_assignments/{emailKey} {
+      allow get: if isVerified() && isValidId(emailKey) && (emailKey == normalizedEmailKey() || isFullAccess());
+      allow list: if isVerified() && isFullAccess();
+      allow create: if isVerified()
+        && isValidId(emailKey)
+        && isValidRoleAssignment(incoming())
+        && emailKey == emailToKey(incoming().email)
+        && emailKey != normalizedEmailKey()
+        && incoming().role != 'developer'
+        && !isMainDeveloperEmailKey(emailKey)
+        && isWritePermitted()
+        && (
+          (isDeveloper() && (isExecutiveRole(incoming().role) || isSubordinateRole(incoming().role))) ||
+          (isChairOrCeo() && isSubordinateRole(incoming().role))
+        );
+      allow update: if isVerified()
+        && isValidId(emailKey)
+        && isValidRoleAssignment(incoming())
+        && emailKey == emailToKey(incoming().email)
+        && emailKey != normalizedEmailKey()
+        && existing().role != 'developer'
+        && incoming().role != 'developer'
+        && !isMainDeveloperEmailKey(emailKey)
+        && isWritePermitted()
+        && (
+          isDeveloper() ||
+          (isChairOrCeo() && isSubordinateRole(existing().role) && isSubordinateRole(incoming().role))
+        );
+      allow delete: if isVerified()
+        && isValidId(emailKey)
+        && emailKey != normalizedEmailKey()
+        && !isMainDeveloperEmailKey(emailKey)
+        && existing().role != 'developer'
+        && isWritePermitted()
+        && (
+          isDeveloper() ||
+          (isChairOrCeo() && isSubordinateRole(existing().role))
+        );
+    }
+
+    // ==================== 3. AMBASSADORS (PUBLIC NON-PII LEADERBOARD) ====================
+    match /ambassadors/{ambassadorId} {
+      allow get: if isValidId(ambassadorId);
+      allow list: if true;
+      allow create: if isVerified() && isValidId(ambassadorId) && isValidAmbassador(incoming()) && isWritePermitted() && (isFullAccess() || isSpecificLead('lead1'));
+      allow update: if isVerified() && isValidId(ambassadorId) && isValidAmbassador(incoming()) && isWritePermitted() && (
+        isFullAccess() ||
+        (isSpecificLead('lead1') && incoming().code == existing().code) ||
+        (
+          (isSecretary() || isAssignedSquadLead(existing().squad))
+          && incoming().diff(existing()).affectedKeys().hasOnly(['workshopRegs', 'techLeads', 'brandPosts', 'clubEvents', 'updatedAt'])
+          && incoming().code == existing().code
+          && incoming().squad == existing().squad
+          && isValidSingleMetricIncrement(incoming(), existing())
+        )
+      );
+      allow delete: if isVerified() && isValidId(ambassadorId) && isDeveloper();
+    }
+
+    // ==================== 4. WORKSHOPS (PUBLIC CATALOG + ATOMIC SEAT CAP) ====================
+    match /workshops/{workshopId} {
+      allow get: if isValidId(workshopId);
+      allow list: if true;
+      allow create: if isVerified() && isValidId(workshopId) && isValidWorkshop(incoming()) && incoming().createdAt == request.time && isWritePermitted() && (isFullAccess() || isSpecificLead('lead2'));
+      allow update: if isVerified() && isValidId(workshopId) && isValidWorkshop(incoming()) && incoming().createdAt == existing().createdAt && isWritePermitted() && (
+        isFullAccess() ||
+        isSpecificLead('lead2') ||
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['regs'])
+          && incoming().regs == existing().regs + 1
+          && incoming().regs <= existing().seats
+          && !exists(/databases/$(database)/documents/workshop_registrations/$(workshopId + '_' + request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/workshop_registrations/$(workshopId + '_' + request.auth.uid))
+        )
+      );
+      allow delete: if isVerified() && isValidId(workshopId) && isDeveloper();
+    }
+
+    // ==================== 5. WORKSHOP REGISTRATIONS (PRIVATE PII + 1 PER USER) ====================
+    match /workshop_registrations/{regId} {
+      allow get: if isVerified() && isValidId(regId) && (
+        existing().registrarUid == request.auth.uid || isFullAccess() || isSecretary() || isSpecificLead('lead2')
+      );
+      allow list: if isVerified() && (
+        resource.data.registrarUid == request.auth.uid || isFullAccess() || isSecretary() || isSpecificLead('lead2')
+      );
+      allow create: if isVerified()
+        && isValidId(regId)
+        && isValidWorkshopRegistration(incoming())
+        && regId == incoming().workshopId + '_' + request.auth.uid
+        && incoming().registrarUid == request.auth.uid
+        && incoming().email.lower() == request.auth.token.email.lower()
+        && incoming().createdAt == request.time
+        && isWritePermitted()
+        && exists(/databases/$(database)/documents/workshops/$(incoming().workshopId))
+        && get(/databases/$(database)/documents/workshops/$(incoming().workshopId)).data.regs < get(/databases/$(database)/documents/workshops/$(incoming().workshopId)).data.seats;
+      allow update: if false;
+      allow delete: if isVerified() && isValidId(regId) && isDeveloper();
+    }
+
+    // ==================== 6. ACTIVITY SUBMISSIONS (KPI QUEUE + MEMBER/REFERRAL GATE) ====================
+    match /submissions/{submissionId} {
+      allow get: if isVerified() && isValidId(submissionId) && (
+        existing().submitterUid == request.auth.uid || isFullAccess() || isSecretary() || isAssignedSquadLead(existing().squad)
+      );
+      allow list: if isVerified() && (
+        resource.data.submitterUid == request.auth.uid || isFullAccess() || isSecretary() || isAssignedSquadLead(resource.data.squad)
+      );
+      allow create: if isVerified()
+        && isValidId(submissionId)
+        && isValidSubmission(incoming())
+        && incoming().submitterUid == request.auth.uid
+        && incoming().status == 'Pending'
+        && incoming().createdAt == request.time
+        && isWritePermitted()
+        && (
+          isAnyAssignedMember() ||
+          (
+            incoming().type == 'Workshop Reg'
+            && submissionId.matches('^wsref_[a-zA-Z0-9_\\-]+$')
+            && !exists(/databases/$(database)/documents/workshop_registrations/$(submissionId.replace('^wsref_', '')))
+            && existsAfter(/databases/$(database)/documents/workshop_registrations/$(submissionId.replace('^wsref_', '')))
+          )
+        );
+      allow update: if isVerified()
+        && isValidId(submissionId)
+        && isValidSubmission(incoming())
+        && incoming().submitterUid == existing().submitterUid
+        && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
+        && (
+          isFullAccess() ||
+          (
+            (isSecretary() || isAssignedSquadLead(existing().squad))
+            && existing().status == 'Pending'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+      allow delete: if isVerified() && isValidId(submissionId) && isDeveloper();
+    }
+
+    // ==================== 7. TECH LEAD PIPELINE (LEAD 3 SEGMENT) ====================
+    match /tech_pipeline/{ticketId} {
+      allow get: if isVerified() && isValidId(ticketId) && (
+        existing().submitterUid == request.auth.uid || isFullAccess() || isSecretary() || isSpecificLead('lead3')
+      );
+      allow list: if isVerified() && (
+        resource.data.submitterUid == request.auth.uid || isFullAccess() || isSecretary() || isSpecificLead('lead3')
+      );
+      allow create: if isVerified()
+        && isValidId(ticketId)
+        && isValidTechLead(incoming())
+        && incoming().submitterUid == request.auth.uid
+        && (incoming().stage == 'New' || isFullAccess())
+        && incoming().createdAt == request.time
+        && isWritePermitted()
+        && isAnyAssignedMember();
+      allow update: if isVerified()
+        && isValidId(ticketId)
+        && isValidTechLead(incoming())
+        && incoming().submitterUid == existing().submitterUid
+        && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
+        && (
+          isFullAccess() ||
+          (
+            (isSecretary() || isSpecificLead('lead3'))
+            && incoming().diff(existing()).affectedKeys().hasOnly(['stage', 'value', 'updatedAt'])
+          )
+        );
+      allow delete: if isVerified() && isValidId(ticketId) && isDeveloper();
+    }
+
+    // ==================== 8. CAMPAIGN KITS (LEAD 4 & SECRETARY) ====================
+    match /campaign_kits/{kitId} {
+      allow get: if isVerified() && isValidId(kitId) && isAnyAssignedMember();
+      allow list: if isVerified() && isAnyAssignedMember();
+      allow create: if isVerified()
+        && isValidId(kitId)
+        && isValidCampaignKit(incoming())
+        && incoming().createdByUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && isWritePermitted()
+        && (isFullAccess() || isSecretary() || isSpecificLead('lead4'));
+      allow update: if isVerified()
+        && isValidId(kitId)
+        && isValidCampaignKit(incoming())
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
+        && (isFullAccess() || isSecretary() || isSpecificLead('lead4'));
+      allow delete: if isVerified() && isValidId(kitId) && isWritePermitted() && (isFullAccess() || isSpecificLead('lead4'));
+    }
+
+    // ==================== 9. RECRUITMENT APPLICATIONS (PRIVATE PII + RECRUITMENT LOCK) ====================
+    match /applications/{applicationId} {
+      allow get: if isVerified() && isValidId(applicationId) && (
+        existing().applicantUid == request.auth.uid || isFullAccess() || isSecretary()
+      );
+      allow list: if isVerified() && (
+        resource.data.applicantUid == request.auth.uid || isFullAccess() || isSecretary()
+      );
+      allow create: if isVerified()
+        && isValidId(applicationId)
+        && isValidApplication(incoming())
+        && incoming().applicantUid == request.auth.uid
+        && incoming().email.lower() == request.auth.token.email.lower()
+        && incoming().status == 'Pending'
+        && incoming().createdAt == request.time
+        && isWritePermitted()
+        && isRecruitmentOpenForRole(incoming().role);
+      allow update: if isVerified()
+        && isValidId(applicationId)
+        && isValidApplication(incoming())
+        && incoming().applicantUid == existing().applicantUid
+        && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
+        && (
+          isFullAccess() ||
+          (
+            isSecretary()
+            && existing().status == 'Pending'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+      allow delete: if isVerified() && isValidId(applicationId) && isDeveloper();
+    }
+
+    // ==================== 10. CERTIFICATES (PUBLIC VERIFY BY ID) ====================
+    match /certificates/{certificateId} {
+      allow get: if isValidId(certificateId);
+      allow list: if isVerified() && (isFullAccess() || isSecretary());
+      allow create: if isVerified()
+        && isValidId(certificateId)
+        && isValidCertificate(incoming())
+        && incoming().createdAt == request.time
+        && isWritePermitted()
+        && isFullAccess();
+      allow update: if isVerified()
+        && isValidId(certificateId)
+        && isValidCertificate(incoming())
+        && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
+        && isFullAccess();
+      allow delete: if isVerified() && isValidId(certificateId) && isDeveloper();
+    }
+
+    // ==================== 11. CLUB PITCHES (LEAD 5 SEGMENT) ====================
+    match /club_pitches/{pitchId} {
+      allow get: if isVerified() && isValidId(pitchId) && (
+        existing().submitterUid == request.auth.uid || isFullAccess() || isSecretary() || isSpecificLead('lead5')
+      );
+      allow list: if isVerified() && (
+        resource.data.submitterUid == request.auth.uid || isFullAccess() || isSecretary() || isSpecificLead('lead5')
+      );
+      allow create: if isVerified()
+        && isValidId(pitchId)
+        && isValidClubPitch(incoming())
+        && incoming().submitterUid == request.auth.uid
+        && incoming().status == 'New'
+        && incoming().createdAt == request.time
+        && isWritePermitted();
+      allow update: if isVerified()
+        && isValidId(pitchId)
+        && isValidClubPitch(incoming())
+        && incoming().submitterUid == existing().submitterUid
+        && incoming().createdAt == existing().createdAt
+        && isWritePermitted()
+        && (
+          isFullAccess() ||
+          (
+            (isSecretary() || isSpecificLead('lead5'))
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+      allow delete: if isVerified() && isValidId(pitchId) && isDeveloper();
+    }
+  }
+}
