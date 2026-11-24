@@ -117,6 +117,27 @@ import {
   WorkshopModal,
 } from './components/PortalModals';
 
+// Base path the app is served from: '/' at a domain root, or
+// '/UE-CAMPUS-AMBASSADOR/' when hosted on GitHub Pages. Vite sets
+// import.meta.env.BASE_URL from the --base build flag, so routing works
+// in both places without code changes.
+const APP_BASE = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
+
+function stripAppBase(path: string): string {
+  if (APP_BASE === '/') return path || '/';
+  if (path === APP_BASE.slice(0, -1)) return '/';
+  if (path.startsWith(APP_BASE)) return `/${path.slice(APP_BASE.length)}`;
+  return path || '/';
+}
+
+function withAppBase(route: string): string {
+  return APP_BASE === '/' ? route : `${APP_BASE.slice(0, -1)}${route}`;
+}
+
+function currentRoute(): string {
+  return `${stripAppBase(window.location.pathname)}${window.location.search}`;
+}
+
 export default function App() {
   const [portalData, setPortalData] = useState<PortalDB>({
     ...DEFAULT_DB,
@@ -155,7 +176,7 @@ export default function App() {
   const [sheetSyncOpen, setSheetSyncOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
 
-  const [pathname, setPathname] = useState<string>(() => window.location.pathname || '/');
+  const [pathname, setPathname] = useState<string>(() => currentRoute());
   const [systemConfig, setSystemConfig] = useState<SystemConfig>(DEFAULT_SYSTEM_CONFIG);
   const systemConfigRef = useRef<SystemConfig>(DEFAULT_SYSTEM_CONFIG);
   const currentUserRef = useRef<PortalUser | null>(null);
@@ -174,8 +195,8 @@ export default function App() {
 
   const navigateTo = (nextPath: string) => {
     const clean = nextPath.startsWith('/') ? nextPath : `/${nextPath}`;
-    if (`${window.location.pathname}${window.location.search}` !== clean) {
-      window.history.pushState({}, '', clean);
+    if (currentRoute() !== clean) {
+      window.history.pushState({}, '', withAppBase(clean));
     }
     setPathname(clean);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -183,7 +204,7 @@ export default function App() {
 
   useEffect(() => {
     const onPopState = () => {
-      setPathname(window.location.pathname || '/');
+      setPathname(currentRoute());
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
