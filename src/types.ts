@@ -292,6 +292,72 @@ export interface SystemErrorLog {
   createdAt: Date | null;
 }
 
+/**
+ * Public user profile — stored at users/{uid}.
+ * Only non-sensitive fields live here. Phone / email / semester are kept in
+ * the private sub-document (see UserPrivateInfo) and are never stored here.
+ */
+export interface UserProfile {
+  uid: string;
+  displayName: string;
+  photoURL: string | null;
+  /** Stored under the existing `campus` naming in role data; labelled "University" in the UI. */
+  university: string;
+  club: string;
+  position: string;
+  role: UserRole | null;
+  updatedAt?: Date | null;
+}
+
+/** Private profile fields — stored at users/{uid}/private/info. */
+export interface UserPrivateInfo {
+  phone: string;
+  email: string;
+  semester: string;
+}
+
+/**
+ * Position options derived from the existing governance titles
+ * (Program Chair, Company CEO, Program Secretary, the five Lead titles and
+ * General Campus Ambassador). Stored custom values are also allowed — the
+ * profile form keeps any existing value as an extra option.
+ */
+export const POSITION_OPTIONS: string[] = [
+  'Program Chair',
+  'Company CEO',
+  'Program Secretary',
+  'Operations & CA HR Lead',
+  'Workshop & Course Growth Lead',
+  'Technical Project & Lead-Gen Lead',
+  'Brand & Digital Publicity Lead',
+  'Campus Partnerships & Events Lead',
+  'General Campus Ambassador',
+];
+
+/** Best-guess default position title for a role (used to prefill new profiles). */
+export function defaultPositionForRole(role: UserRole | null): string {
+  switch (role) {
+    case 'chair':
+      return 'Program Chair';
+    case 'ceo':
+      return 'Company CEO';
+    case 'secretary':
+      return 'Program Secretary';
+    case 'lead1':
+      return 'Operations & CA HR Lead';
+    case 'lead2':
+      return 'Workshop & Course Growth Lead';
+    case 'lead3':
+      return 'Technical Project & Lead-Gen Lead';
+    case 'lead4':
+      return 'Brand & Digital Publicity Lead';
+    case 'lead5':
+      return 'Campus Partnerships & Events Lead';
+    default:
+      return 'General Campus Ambassador';
+  }
+}
+
 export interface BlockedSessionNotice {
   type: 'suspended' | 'banned' | 'lockdown';
   title: string;
