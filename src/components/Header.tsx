@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Terminal, UserRound, Users } from 'lucide-react';
 import { Ambassador, PortalUser } from '../types';
-import { DesktopTopNav, NotificationBell } from './AppNavigation';
+import { AnnouncementTicker, DesktopTopNav, NotificationBell } from './AppNavigation';
 
 interface HeaderProps {
   detectedRefCode: string;
@@ -146,6 +146,7 @@ export function Header({
         </div>
         {/* Mobile navigation lives in the fixed bottom tab bar (MobileBottomNav). */}
       </header>
+      <AnnouncementTicker currentUser={currentUser} />
     </>
   );
 }

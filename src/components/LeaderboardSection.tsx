@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Download, RefreshCw, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Download, Medal, RefreshCw, Search } from 'lucide-react';
 import { calcPoints, SQUAD_NAMES, SQUADS_META } from '../data/playbook';
 import { PortalDB, SquadName } from '../types';
 
@@ -58,6 +58,11 @@ export function LeaderboardSection({
   }, [db.roster, db.kpiWeights, squadFilter, searchQuery]);
 
   const w = db.kpiWeights;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   return (
     <section
@@ -137,6 +142,54 @@ export function LeaderboardSection({
             </div>
           </div>
         </div>
+
+        {/* Top 3 Podium */}
+        {rankedAll.length > 0 && (
+          <div className="grid sm:grid-cols-3 gap-4 mb-8">
+            {rankedAll.slice(0, 3).map((ca, i) => {
+              const pts = calcPoints(ca, w);
+              const topPts = calcPoints(rankedAll[0], w) || 1;
+              const pct = Math.max(4, Math.round((pts / topPts) * 100));
+              const medal =
+                i === 0
+                  ? 'text-amber-500 border-amber-400/60'
+                  : i === 1
+                    ? 'text-slate-400 border-slate-300/60'
+                    : 'text-[#B08D57] border-[#B08D57]/60';
+              return (
+                <div
+                  key={ca.id}
+                  className={`card-lift bg-white dark:bg-[#15181E] border rounded-xl p-5 ${
+                    i === 0
+                      ? 'border-[#B51B27]/50 sm:-translate-y-1'
+                      : 'border-[#E2E5EB] dark:border-[#262B35]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`inline-flex items-center gap-1.5 font-display font-extrabold ${medal.split(' ')[0]}`}>
+                      <Medal className="w-5 h-5" aria-hidden="true" /> #{i + 1}
+                    </span>
+                    <span className="font-mono tabular-nums font-extrabold text-lg text-[#111318] dark:text-white">
+                      {pts} pts
+                    </span>
+                  </div>
+                  <div className="mt-3 font-display font-bold text-[#111318] dark:text-white truncate">
+                    {ca.name}
+                  </div>
+                  <div className="text-[11px] text-[#5A6270] dark:text-slate-400 truncate">
+                    {ca.campus} · {ca.squad}
+                  </div>
+                  <div className="mt-3 h-2 rounded-full bg-[#F4F5F7] dark:bg-[#0D0F12] overflow-hidden">
+                    <div
+                      className="bar-grow h-full rounded-full bg-[#B51B27]"
+                      style={{ width: mounted ? `${pct}%` : '0%' }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Filter Bar & KPI Weight Legend */}
         <div className="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center mb-4">
