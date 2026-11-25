@@ -21,9 +21,9 @@ import { listAllUserProfiles } from './profileService';
 // Until then, announcements still work in-app; email sending is skipped.
 // ============================================================================
 
-const EMAILJS_PUBLIC_KEY = 'EMAILJS_PUBLIC_KEY_PLACEHOLDER';
-const EMAILJS_SERVICE_ID = 'EMAILJS_SERVICE_ID_PLACEHOLDER';
-const EMAILJS_TEMPLATE_ID = 'EMAILJS_TEMPLATE_ID_PLACEHOLDER';
+const EMAILJS_PUBLIC_KEY = 'bbKXR6aULC12lMrrd';
+const EMAILJS_SERVICE_ID = 'service_yd7ngs4';
+const EMAILJS_TEMPLATE_ID = 'template_qgly69h';
 
 export function emailAnnouncementsConfigured(): boolean {
   return (
