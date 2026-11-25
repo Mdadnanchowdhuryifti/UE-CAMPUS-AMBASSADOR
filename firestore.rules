@@ -432,6 +432,24 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    // Owner self-service variant of isValidUserProfile: identical field
+    // checks, but updatedAt only has to be a timestamp (the strict
+    // == request.time equality is dropped for a user's OWN profile so a
+    // signed-in member can always save their profile and photo).
+    function isValidOwnProfile(data) {
+      return data.keys().hasOnly(['displayName', 'photoURL', 'university', 'club', 'position', 'role', 'email', 'semester', 'updatedAt'])
+        && (!data.keys().hasAny(['email']) || (data.email is string && data.email.size() <= 160))
+        && (!data.keys().hasAny(['semester']) || (data.semester is string && data.semester.size() <= 60))
+        && (!data.keys().hasAny(['displayName']) || (data.displayName is string && data.displayName.size() <= 120))
+        && (!data.keys().hasAny(['photoURL']) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1000))
+        && (!data.keys().hasAny(['university']) || (data.university is string && data.university.size() <= 120))
+        && (!data.keys().hasAny(['club']) || (data.club is string && data.club.size() <= 120))
+        && (!data.keys().hasAny(['position']) || (data.position is string && data.position.size() <= 140))
+        && (!data.keys().hasAny(['role']) || isValidRole(data.role))
+        && data.keys().hasAll(['updatedAt'])
+        && data.updatedAt is timestamp;
+    }
+
     // Private profile doc (users/{uid}/private/info): phone, email, semester only.
     function isValidUserPrivateInfo(data) {
       return data.keys().hasOnly(['phone', 'email', 'semester', 'updatedAt'])
@@ -440,6 +458,16 @@ service cloud.firestore {
         && (!data.keys().hasAny(['semester']) || (data.semester is string && data.semester.size() <= 60))
         && data.keys().hasAll(['updatedAt'])
         && data.updatedAt == request.time;
+    }
+
+    // Owner self-service variant of isValidUserPrivateInfo (same reasoning).
+    function isValidOwnPrivateInfo(data) {
+      return data.keys().hasOnly(['phone', 'email', 'semester', 'updatedAt'])
+        && (!data.keys().hasAny(['phone']) || (data.phone is string && data.phone.size() <= 40))
+        && (!data.keys().hasAny(['email']) || (data.email is string && data.email.size() <= 160))
+        && (!data.keys().hasAny(['semester']) || (data.semester is string && data.semester.size() <= 60))
+        && data.keys().hasAll(['updatedAt'])
+        && data.updatedAt is timestamp;
     }
 
     // Announcement authors: developer, Chair, CEO, Secretary and squad Leads.
@@ -881,6 +909,21 @@ service cloud.firestore {
       // signed-in-only.
       allow get: if isValidId(userId);
       allow list: if true;
+      // Owner self-service (decided 2026-11-26): ANY verified signed-in
+      // user can create/update their OWN profile document — including the
+      // profile photo URL. The role field may only be absent, 'ca', their
+      // registry role, or unchanged — never a self-escalation, and never
+      // the developer role unless the registry already says so.
+      allow create, update: if isVerified()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidOwnProfile(incoming())
+        && (
+          !incoming().keys().hasAny(['role'])
+          || incoming().role == 'ca'
+          || (hasRoleDoc() && incoming().role == roleDoc().role)
+          || (resource != null && incoming().role == resource.data.get('role', '__none__'))
+        );
       allow create: if isVerified()
         && isValidId(userId)
         && isValidUserProfile(incoming())
@@ -952,6 +995,12 @@ service cloud.firestore {
           && isValidId(userId)
           && docId == 'info';
         allow list: if false;
+        // Owner self-service: the owner can always save their own private info.
+        allow create, update: if isVerified()
+          && isValidId(userId)
+          && docId == 'info'
+          && request.auth.uid == userId
+          && isValidOwnPrivateInfo(incoming());
         allow create, update: if isVerified()
           && isValidId(userId)
           && docId == 'info'
