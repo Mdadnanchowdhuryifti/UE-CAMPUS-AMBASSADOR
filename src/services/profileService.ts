@@ -172,6 +172,19 @@ export function getProfileFieldAccess(
 /** Chair / Secretary / CEO / Developer may change roles (subject to the developer guard). */
 export function canChangeUserRole(viewer: PortalUser | null): boolean {
   if (!viewer) return false;
+  // Role changes are restricted to Tier 1 (Chair / CEO) and the developer
+  // (Tier 0) — decided by the developer on 2026-11-25. The Secretary can
+  // still edit profiles and change POSITIONS, but never roles.
+  return (
+    viewer.role === 'developer' ||
+    viewer.role === 'chair' ||
+    viewer.role === 'ceo'
+  );
+}
+
+/** Position changes stay available to Chair, Secretary, CEO and developer. */
+export function canChangeUserPosition(viewer: PortalUser | null): boolean {
+  if (!viewer) return false;
   return (
     viewer.role === 'developer' ||
     viewer.role === 'chair' ||
@@ -334,17 +347,21 @@ export async function updateUserRoleAndPosition(input: {
   position: string;
 }): Promise<void> {
   const { viewer, targetUid } = input;
-  if (!canChangeUserRole(viewer)) {
-    throw new Error('You do not have permission to change roles.');
+  const roleChanging = input.role !== input.currentRole;
+  if (roleChanging && !canChangeUserRole(viewer)) {
+    throw new Error('Only the Chair (or a developer) can change roles.');
+  }
+  if (!roleChanging && !canChangeUserPosition(viewer)) {
+    throw new Error('You do not have permission to change positions.');
   }
   // The guard applies to role CHANGES only: a developer's position may
   // still be edited, but their role can never be granted or removed here.
   if (
-    input.role !== input.currentRole &&
+    roleChanging &&
     (isDeveloperRoleGuarded(viewer, input.role) ||
       isDeveloperRoleGuarded(viewer, input.currentRole))
   ) {
-    throw new Error('Chair and Secretary can never grant or remove the "developer" role.');
+    throw new Error('Only a developer can grant or remove the "developer" role.');
   }
   try {
     await setDoc(

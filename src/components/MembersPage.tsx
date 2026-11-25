@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { isMainDeveloperEmail, normalizeEmailKey } from '../lib/firebase';
 import {
+  canChangeUserRole,
   isDeveloperRoleGuarded,
   listAllUserProfiles,
   roleOptionsForViewer,
@@ -187,6 +188,14 @@ export function MembersPage({
       });
       return;
     }
+    if (next.role !== row.role && !canChangeUserRole(currentUser)) {
+      setRowMessage({
+        key: row.key,
+        kind: 'error',
+        text: 'Role changes are Chair/Developer only. You can still change the position.',
+      });
+      return;
+    }
     if (
       next.role !== row.role &&
       (isDeveloperRoleGuarded(currentUser, next.role) ||
@@ -195,7 +204,7 @@ export function MembersPage({
       setRowMessage({
         key: row.key,
         kind: 'error',
-        text: 'Chair and Secretary can never grant or remove the "developer" role.',
+        text: 'Only a developer can grant or remove the "developer" role.',
       });
       return;
     }
@@ -408,7 +417,8 @@ export function MembersPage({
               {filteredRows.map((row) => {
                 const isMainDevRow = isMainDeveloperEmail(row.email);
                 const guarded = isDeveloperRoleGuarded(currentUser, row.role);
-                const roleLocked = guarded || isMainDevRow;
+                const canChangeRoles = canChangeUserRole(currentUser);
+                const roleLocked = guarded || isMainDevRow || !canChangeRoles;
                 const roleOpts = (() => {
                   const opts = roleOptionsForViewer(currentUser);
                   if (row.role && !opts.includes(row.role)) return [row.role, ...opts];
@@ -466,7 +476,9 @@ export function MembersPage({
                             ? 'Primary developer accounts are permanently locked to Platform Developer.'
                             : guarded
                               ? 'The developer role can never be granted or removed by Chair or Secretary.'
-                              : undefined
+                              : !canChangeRoles
+                                ? 'Role changes are Chair/Developer only.'
+                                : undefined
                         }
                         onChange={(e) =>
                           void handleRoleOrPositionChange(row, {
@@ -490,6 +502,11 @@ export function MembersPage({
                       {!isMainDevRow && guarded && (
                         <p className="text-[10px] mt-1 text-[#5A6270] dark:text-slate-400 max-w-[190px]">
                           Developer role — locked for Chair/Secretary.
+                        </p>
+                      )}
+                      {!guarded && !canChangeRoles && (
+                        <p className="text-[10px] mt-1 text-[#5A6270] dark:text-slate-400 max-w-[190px]">
+                          Role changes are Chair/Developer only.
                         </p>
                       )}
                     </td>
@@ -550,7 +567,8 @@ export function MembersPage({
 
       <p className="text-[11px] text-[#5A6270] dark:text-slate-400 flex items-start gap-1.5">
         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-        The developer role never appears in these dropdowns for Chair or Secretary, and a
+        Role changes are Chair/Developer only — the Secretary can change positions but not
+        roles. The developer role never appears in these dropdowns for Chair or Secretary, and a
         developer&apos;s role cannot be changed here. Private details (phone, email, semester) are
         never shown on this page.
       </p>
