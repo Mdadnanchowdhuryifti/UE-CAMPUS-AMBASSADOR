@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.ulteriorengineering.ca",
+      "sha256_cert_fingerprints": [
+        "8B:EC:75:4A:A3:FD:FB:07:7C:47:DB:0E:54:AF:26:05:D1:EB:8A:CA:5F:42:E8:8B:2D:66:FB:A7:F4:CC:77:89"
+      ]
+    }
+  }
+]
