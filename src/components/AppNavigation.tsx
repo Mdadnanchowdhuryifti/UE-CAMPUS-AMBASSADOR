@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -9,15 +9,23 @@ import {
   GraduationCap,
   Home,
   LayoutGrid,
+  Megaphone,
   LogIn,
   LucideIcon,
   Network,
+  Send,
   Trophy,
   UserRound,
   Users,
   X,
 } from 'lucide-react';
 import { PortalUser } from '../types';
+import {
+  Announcement,
+  canAnnounce,
+  postAnnouncement,
+  subscribeAnnouncements,
+} from '../services/announcementService';
 
 export interface NavItem {
   path: string;
@@ -36,26 +44,220 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
   { path: '/download', label: 'Download App', icon: Download },
 ];
 
-/** Placeholder notification count (no notification system yet). */
-export const NOTIFICATION_COUNT = 3;
+const ROLE_LABELS: Record<string, string> = {
+  developer: 'Developer',
+  chair: 'Chair',
+  ceo: 'CEO',
+  secretary: 'Secretary',
+  lead1: 'Squad A Lead',
+  lead2: 'Squad B Lead',
+  lead3: 'Squad C Lead',
+  lead4: 'Squad D Lead',
+  lead5: 'Squad E Lead',
+  ca: 'Campus Ambassador',
+};
 
-/** Bell button with a small red unread-count badge. */
-export function NotificationBell() {
+/**
+ * Bell button with a live unread badge. Opens the announcements panel:
+ * every signed-in member sees announcements posted by the Chair,
+ * Secretary, CEO, Leads or developer, and those roles can post a new
+ * announcement (which is also emailed to all members) from the panel.
+ */
+export function NotificationBell({
+  currentUser,
+}: {
+  currentUser: PortalUser | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<Announcement[]>([]);
+  const [lastSeen, setLastSeen] = useState<number>(0);
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [postNote, setPostNote] = useState<string | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  const seenKey = currentUser ? `ue-ann-seen-${currentUser.uid}` : null;
+
+  useEffect(() => {
+    if (!seenKey) return;
+    const raw = window.localStorage.getItem(seenKey);
+    setLastSeen(raw ? Number(raw) || 0 : 0);
+  }, [seenKey]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = subscribeAnnouncements(setItems, () => setItems([]));
+    return unsub;
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open ]);
+
+  const unread = currentUser
+    ? items.filter(
+        (it) =>
+          it.createdAt &&
+          it.createdAt.getTime() > lastSeen &&
+          it.authorUid !== currentUser.uid
+      ).length
+    : 0;
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && seenKey) {
+      const now = Date.now();
+      window.localStorage.setItem(seenKey, String(now));
+      setLastSeen(now);
+    }
+  };
+
+  const handlePost = async () => {
+    if (!currentUser || posting) return;
+    setPosting(true);
+    setPostNote(null);
+    try {
+      const res = await postAnnouncement({ author: currentUser, title, message });
+      setTitle('');
+      setMessage('');
+      setPostNote(
+        res.emailConfigured
+          ? `Announcement posted and emailed to ${res.emailedCount} member(s).`
+          : 'Announcement posted. (Email is not set up yet, so it was not emailed.)'
+      );
+    } catch (err) {
+      setPostNote(
+        err instanceof Error ? err.message : 'Announcement could not be posted.'
+      );
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const inputClass =
+    'w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/60 px-3 py-2 text-sm text-[#111318] dark:text-white placeholder:text-[#5A6270] focus:outline-none focus:ring-2 focus:ring-[#B51B27]/60';
+
   return (
-    <button
-      type="button"
-      aria-label={`Notifications, ${NOTIFICATION_COUNT} unread`}
-      title="Notifications"
-      className="relative inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg text-[#5A6270] dark:text-slate-300 hover:text-[#B51B27] dark:hover:text-white hover:bg-[#B51B27]/10 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-2"
-    >
-      <Bell className="w-5 h-5" aria-hidden="true" />
-      <span
-        aria-hidden="true"
-        className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#B51B27] text-white text-[10px] font-bold flex items-center justify-center"
+    <div className="relative" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+        title="Notifications"
+        className="relative inline-flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg text-[#5A6270] dark:text-slate-300 hover:text-[#B51B27] dark:hover:text-white hover:bg-[#B51B27]/10 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-2"
       >
-        {NOTIFICATION_COUNT}
-      </span>
-    </button>
+        <Bell className="w-5 h-5" aria-hidden="true" />
+        {unread > 0 && (
+          <span
+            aria-hidden="true"
+            className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#B51B27] text-white text-[10px] font-bold flex items-center justify-center"
+          >
+            {unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-12 z-50 w-[340px] max-w-[86vw] rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#12151C] shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+            <span className="flex items-center gap-2 text-sm font-bold text-[#111318] dark:text-white">
+              <Megaphone className="w-4 h-4 text-[#B51B27]" /> Announcements
+            </span>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close notifications"
+              className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-[#5A6270] dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {!currentUser ? (
+            <p className="px-4 py-6 text-sm text-[#5A6270] dark:text-slate-400">
+              Sign in to see announcements.
+            </p>
+          ) : (
+            <>
+              {canAnnounce(currentUser) && (
+                <div className="px-4 py-3 space-y-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
+                  <input
+                    className={inputClass}
+                    placeholder="Announcement title"
+                    value={title}
+                    maxLength={120}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                  <textarea
+                    className={`${inputClass} resize-none`}
+                    placeholder="Write the announcement for all members…"
+                    value={message}
+                    rows={3}
+                    maxLength={2000}
+                    onChange={(e) => setMessage(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handlePost}
+                    disabled={posting || !title.trim() || !message.trim()}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#B51B27] px-3 py-2 text-sm font-semibold text-white hover:bg-[#9c1620] disabled:opacity-50 cursor-pointer"
+                  >
+                    <Send className="w-4 h-4" />
+                    {posting ? 'Posting…' : 'Post announcement'}
+                  </button>
+                  {postNote && (
+                    <p className="text-[11px] text-[#5A6270] dark:text-slate-400">{postNote}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="max-h-80 overflow-y-auto">
+                {items.length === 0 ? (
+                  <p className="px-4 py-6 text-sm text-[#5A6270] dark:text-slate-400">
+                    No announcements yet.
+                  </p>
+                ) : (
+                  items.map((it) => (
+                    <article
+                      key={it.id}
+                      className="px-4 py-3 border-b border-slate-100 dark:border-slate-800/60 last:border-b-0"
+                    >
+                      <h3 className="text-sm font-bold text-[#111318] dark:text-white">
+                        {it.title}
+                      </h3>
+                      <p className="mt-1 text-sm text-[#374151] dark:text-slate-300 whitespace-pre-line">
+                        {it.message}
+                      </p>
+                      <p className="mt-2 text-[11px] text-[#5A6270] dark:text-slate-500">
+                        {it.authorName}
+                        {it.authorRole ? ` · ${ROLE_LABELS[it.authorRole] || it.authorRole}` : ''}
+                        {it.createdAt
+                          ? ` · ${it.createdAt.toLocaleString(undefined, {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}`
+                          : ''}
+                      </p>
+                    </article>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

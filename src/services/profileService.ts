@@ -59,6 +59,8 @@ function mapProfile(uid: string, data: Record<string, unknown>): UserProfile {
   return {
     uid,
     displayName: String(data.displayName || ''),
+    email: String(data.email || ''),
+    semester: String(data.semester || ''),
     photoURL: typeof data.photoURL === 'string' && data.photoURL ? data.photoURL : null,
     university: String(data.university || data.campus || ''),
     club: String(data.club || ''),
@@ -77,25 +79,19 @@ function isLeadRole(role: UserRole | null | undefined): boolean {
 }
 
 /**
- * Who may see phone / email / semester?
- * Only the profile owner, Chair and Secretary — plus the developer
- * (Tier 0 root, consistent with the rest of the system).
- * NOTE: CEO is intentionally NOT included here — the privacy spec lists
- * owner / Chair / Secretary only (developer added as Tier 0).
+ * Who may see the phone number?
+ * Since 2026-11-26 email and semester live in the PUBLIC profile document
+ * (readable by everyone). The phone number is the only field left in
+ * users/{uid}/private/info, and it is visible to any signed-in member.
  * Callers must gate the actual Firestore fetch on this helper: never
- * fetch users/{uid}/private/info for a viewer who is not allowed to see it.
+ * fetch users/{uid}/private/info for a signed-out viewer.
  */
 export function canViewPrivateInfo(
   viewer: PortalUser | null,
   targetUid: string
 ): boolean {
-  if (!viewer) return false;
-  if (viewer.uid === targetUid) return true;
-  return (
-    viewer.role === 'developer' ||
-    viewer.role === 'chair' ||
-    viewer.role === 'secretary'
-  );
+  void targetUid;
+  return viewer != null;
 }
 
 /**
@@ -162,7 +158,14 @@ export function getProfileFieldAccess(
     leadSelfServiceOnly: false,
     canEditIdentityFields: true,
     canEditPosition: true,
-    canEditPrivateFields: canViewPrivateInfo(viewer, targetUid),
+    // Editing contact fields stays restricted to the owner, Chair,
+    // Secretary and developer (matching the Firestore rules for the
+    // private doc) even though phone VIEWING is open to signed-in members.
+    canEditPrivateFields:
+      isOwn ||
+      viewer.role === 'developer' ||
+      viewer.role === 'chair' ||
+      viewer.role === 'secretary',
   };
 }
 
@@ -317,6 +320,17 @@ export async function saveUserProfile(input: SaveUserProfileInput): Promise<void
     await setDoc(doc(db, 'users', targetUid), publicPayload, { merge: true });
 
     if (input.privateFields && access.canEditPrivateFields) {
+      // Email + semester are PUBLIC fields now (decided 2026-11-26): they are
+      // written to the public document above via a second merge below.
+      await setDoc(
+        doc(db, 'users', targetUid),
+        {
+          email: clamp(input.privateFields.email.toLowerCase(), 160),
+          semester: clamp(input.privateFields.semester, 60),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
       await setDoc(
         doc(db, 'users', targetUid, 'private', 'info'),
         {
