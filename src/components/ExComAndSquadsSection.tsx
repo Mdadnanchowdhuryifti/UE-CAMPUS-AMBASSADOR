@@ -41,7 +41,7 @@ function PersonAvatar({
       <img
         src={profile.photoURL}
         alt={profile.displayName || fallbackName}
-        className="w-14 h-14 rounded-lg object-cover border border-[#E2E5EB] dark:border-[#262B35] shrink-0"
+        className="w-14 h-14 rounded-lg object-cover border border-[#E2E5EB] dark:border-[#262B35] shrink-0 transition-transform duration-300 hover:scale-105"
       />
     );
   }
@@ -385,7 +385,7 @@ export function ExComAndSquadsSection({
                           <img
                             src={leadProfile.photoURL}
                             alt={leadProfile.displayName}
-                            className="w-9 h-9 rounded-full object-cover border border-[#E2E5EB] dark:border-[#262B35] shrink-0"
+                            className="w-9 h-9 rounded-full object-cover border border-[#E2E5EB] dark:border-[#262B35] shrink-0 transition-transform duration-300 hover:scale-110"
                           />
                         ) : (
                           <div className="w-9 h-9 rounded-full bg-[#B51B27]/10 text-[#B51B27] flex items-center justify-center text-[11px] font-bold shrink-0">

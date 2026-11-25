@@ -98,9 +98,9 @@ export default function HomePage({
               <Link
                 key={item.path}
                 to={item.path}
-                className="group bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-5 flex items-start gap-4 hover:border-[#B51B27] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-2"
+                className="card-lift group bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-5 flex items-start gap-4 hover:border-[#B51B27] focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-2"
               >
-                <span className="w-11 h-11 rounded-lg bg-[#B51B27]/10 text-[#B51B27] flex items-center justify-center shrink-0">
+                <span className="w-11 h-11 rounded-lg bg-[#B51B27]/10 text-[#B51B27] flex items-center justify-center shrink-0 transition-all duration-150 group-hover:bg-[#B51B27] group-hover:text-white group-hover:scale-110">
                   <item.icon className="w-5 h-5" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">

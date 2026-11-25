@@ -129,3 +129,56 @@ html.dark .glass-panel {
     transform: translateY(0);
   }
 }
+
+/* ==== Dynamic UI pack (2026-11-26) ==== */
+@keyframes ue-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: ue-marquee 28s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ue-hero-glow {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+.hero-glow {
+  background-image:
+    radial-gradient(420px 260px at 15% 20%, rgba(181, 27, 39, 0.16), transparent 65%),
+    radial-gradient(520px 320px at 85% 75%, rgba(181, 27, 39, 0.12), transparent 65%);
+  background-size: 160% 160%;
+  animation: ue-hero-glow 14s ease-in-out infinite;
+}
+
+@keyframes ue-badge-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(181, 27, 39, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(181, 27, 39, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(181, 27, 39, 0); }
+}
+.badge-pulse {
+  animation: ue-badge-pulse 1.8s ease-out infinite;
+}
+
+.card-lift {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px -14px rgba(181, 27, 39, 0.35);
+}
+
+.pressable {
+  transition: transform 120ms ease;
+}
+.pressable:active {
+  transform: scale(0.97);
+}
+
+.bar-grow {
+  transition: width 1100ms cubic-bezier(0.16, 1, 0.3, 1);
+}

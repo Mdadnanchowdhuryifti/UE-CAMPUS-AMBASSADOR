@@ -159,7 +159,7 @@ export function NotificationBell({
         {unread > 0 && (
           <span
             aria-hidden="true"
-            className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#B51B27] text-white text-[10px] font-bold flex items-center justify-center"
+            className="badge-pulse absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#B51B27] text-white text-[10px] font-bold flex items-center justify-center"
           >
             {unread}
           </span>
@@ -277,7 +277,7 @@ export function DesktopTopNav() {
             <>
               <item.icon
                 aria-hidden="true"
-                className={`w-5 h-5 transition-colors duration-150 ${
+                className={`w-5 h-5 transition-all duration-150 group-hover:scale-110 ${
                   isActive
                     ? 'text-[#B51B27]'
                     : 'text-[#5A6270] dark:text-slate-400 group-hover:text-[#B51B27] dark:group-hover:text-white'
@@ -346,7 +346,7 @@ export function MobileBottomNav({ currentUser }: MobileBottomNavProps) {
                 <>
                   <item.icon
                     aria-hidden="true"
-                    className={`w-5 h-5 transition-colors duration-150 ${
+                    className={`w-5 h-5 transition-all duration-150 group-hover:scale-110 ${
                       isActive ? 'text-[#B51B27]' : 'text-[#5A6270] dark:text-slate-400'
                     }`}
                     fill={isActive ? 'currentColor' : 'none'}
@@ -452,5 +452,42 @@ export function MobileBottomNav({ currentUser }: MobileBottomNavProps) {
         </div>
       )}
     </>
+  );
+}
+
+
+/**
+ * Live announcement ticker under the header: scrolls the latest
+ * announcement titles for signed-in members. Renders nothing when
+ * there are no announcements (or the visitor is signed out).
+ */
+export function AnnouncementTicker({ currentUser }: { currentUser: PortalUser | null }) {
+  const [items, setItems] = useState<Announcement[]>([]);
+  useEffect(() => {
+    if (!currentUser) {
+      setItems([]);
+      return;
+    }
+    const unsub = subscribeAnnouncements(setItems, () => setItems([]));
+    return unsub;
+  }, [currentUser]);
+
+  if (!currentUser || items.length === 0) return null;
+  const latest = items.slice(0, 5);
+  const line = latest.map((a) => `${a.title} — ${a.message}`).join('  •  ');
+  return (
+    <div className="bg-[#B51B27] text-white overflow-hidden" role="marquee" aria-label="Latest announcements">
+      <div className="flex items-center">
+        <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#92141E] text-[11px] font-bold uppercase tracking-wide shrink-0">
+          <Megaphone className="w-3.5 h-3.5" aria-hidden="true" /> Live
+        </span>
+        <div className="relative flex-1 overflow-hidden py-1.5">
+          <div className="animate-marquee whitespace-nowrap text-xs font-medium will-change-transform inline-block pl-3">
+            <span>{line}</span>
+            <span aria-hidden="true">{'  •  ' + line}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

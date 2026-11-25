@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, ArrowUpRight, Crown, Lock, ShieldCheck } from 'lucide-react';
+import { AnimatedCounter } from './AnimatedCounter';
+import { ArrowRight, ArrowUpRight, Crown, Lock, ShieldCheck, Timer } from 'lucide-react';
 import {
   getFirstOpenRecruitmentRoleTitle,
   hasAnyOpenRecruitmentRole,
@@ -32,6 +34,7 @@ export function HeroSection({
   return (
     <section className="relative overflow-hidden swiss-grid border-b border-[#E2E5EB] dark:border-[#262B35]">
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/75 via-transparent to-[#B51B27]/[0.05] dark:from-[#0D0F12]/85 dark:via-transparent dark:to-[#B51B27]/[0.09]" />
+      <div className="hero-glow absolute inset-0 pointer-events-none" aria-hidden="true" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-20">
         <div className="grid lg:grid-cols-12 gap-10 items-stretch">
@@ -225,7 +228,7 @@ export function HeroSection({
         <div className="mt-12 pt-8 border-t border-[#E2E5EB] dark:border-[#262B35] grid grid-cols-2 lg:grid-cols-4 gap-6">
           <div>
             <div className="text-3xl font-extrabold font-mono tabular-nums text-[#111318] dark:text-white">
-              24+
+              <AnimatedCounter value={24} suffix="+" />
             </div>
             <div className="text-xs font-medium text-[#5A6270] dark:text-slate-400 mt-1">
               Target Partner Campuses across Squads A–E
@@ -233,7 +236,7 @@ export function HeroSection({
           </div>
           <div>
             <div className="text-3xl font-extrabold font-mono tabular-nums text-[#B51B27]">
-              {db.roster.length}
+              <AnimatedCounter value={db.roster.length} />
             </div>
             <div className="text-xs font-medium text-[#5A6270] dark:text-slate-400 mt-1">
               Active Verified Ambassadors on Roster
@@ -241,7 +244,7 @@ export function HeroSection({
           </div>
           <div>
             <div className="text-3xl font-extrabold font-mono tabular-nums text-[#111318] dark:text-white">
-              {totalWorkshops}
+              <AnimatedCounter value={totalWorkshops} />
             </div>
             <div className="text-xs font-medium text-[#5A6270] dark:text-slate-400 mt-1">
               Referral-Tracked Workshop Registrations
@@ -249,14 +252,51 @@ export function HeroSection({
           </div>
           <div>
             <div className="text-3xl font-extrabold font-mono tabular-nums text-[#111318] dark:text-white">
-              {totalLeads}
+              <AnimatedCounter value={totalLeads} />
             </div>
             <div className="text-xs font-medium text-[#5A6270] dark:text-slate-400 mt-1">
               Verified FYDP &amp; Hardware Tech Leads
             </div>
           </div>
         </div>
+
+        <NextWorkshopCountdown db={db} />
       </div>
     </section>
+  );
+}
+
+/** Live countdown to the next upcoming workshop (hidden when none is ahead). */
+function NextWorkshopCountdown({ db }: { db: PortalDB }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const next = db.workshops
+    .map((w) => ({ w, t: new Date(w.date).getTime() }))
+    .filter((x) => Number.isFinite(x.t) && x.t > now)
+    .sort((a, b) => a.t - b.t)[0];
+  if (!next) return null;
+
+  const diff = Math.max(0, next.t - now);
+  const d = Math.floor(diff / 86400000);
+  const hh = Math.floor((diff % 86400000) / 3600000);
+  const mm = Math.floor((diff % 3600000) / 60000);
+  const ss = Math.floor((diff % 60000) / 1000);
+  const pad = (v: number) => String(v).padStart(2, '0');
+
+  return (
+    <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm">
+      <span className="inline-flex items-center gap-1.5 font-semibold text-[#B51B27]">
+        <Timer className="w-4 h-4" aria-hidden="true" /> Next workshop
+      </span>
+      <span className="font-semibold text-[#111318] dark:text-white">{next.w.title}</span>
+      <span className="text-[#5A6270] dark:text-slate-400">· {next.w.date}</span>
+      <span className="font-mono tabular-nums font-bold text-[#111318] dark:text-white bg-[#B51B27]/10 rounded-md px-2 py-0.5">
+        {d}d : {pad(hh)}h : {pad(mm)}m : {pad(ss)}s
+      </span>
+    </div>
   );
 }

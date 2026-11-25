@@ -1384,6 +1384,7 @@ export default function App() {
       />
 
       <main>
+        <div key={location.pathname} className="page-enter">
         <Suspense fallback={<PageSkeleton />}>
           <Routes>
             <Route
@@ -1478,6 +1479,7 @@ export default function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
+        </div>
       </main>
 
       {/* Quiet Footer with Direct App Download Button */}
