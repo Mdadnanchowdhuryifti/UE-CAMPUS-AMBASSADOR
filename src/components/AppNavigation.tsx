@@ -481,7 +481,7 @@ export function AnnouncementTicker({ currentUser }: { currentUser: PortalUser | 
         <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#92141E] text-[11px] font-bold uppercase tracking-wide shrink-0">
           <Megaphone className="w-3.5 h-3.5" aria-hidden="true" /> Live
         </span>
-        <div className="relative flex-1 overflow-hidden py-1.5">
+        <div className="relative flex-1 min-w-0 overflow-hidden py-1.5">
           <div className="animate-marquee whitespace-nowrap text-xs font-medium will-change-transform inline-block pl-3">
             <span>{line}</span>
             <span aria-hidden="true">{'  •  ' + line}</span>
