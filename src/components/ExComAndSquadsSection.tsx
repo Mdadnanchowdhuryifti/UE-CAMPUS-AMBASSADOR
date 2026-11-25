@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowRight, ArrowUpRight, Lock } from 'lucide-react';
 import {
   calcPoints,
@@ -11,7 +11,48 @@ import {
   hasAnyOpenRecruitmentRole,
   isFullAccessRole,
 } from '../services/portalService';
-import { PortalDB, PortalUser, SquadName } from '../types';
+import { listAllUserProfiles } from '../services/profileService';
+import { PortalDB, PortalUser, SquadName, UserProfile, UserRole } from '../types';
+
+function initialsOf(name: string, fallback: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return fallback;
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Avatar for an ExCom card: the member's uploaded profile photo when one
+ * exists, otherwise the original initials box (nothing is removed).
+ */
+function PersonAvatar({
+  profile,
+  fallbackName,
+  fallbackInitials,
+  boxClass,
+}: {
+  profile: UserProfile | null;
+  fallbackName: string;
+  fallbackInitials: string;
+  boxClass: string;
+}) {
+  if (profile?.photoURL) {
+    return (
+      <img
+        src={profile.photoURL}
+        alt={profile.displayName || fallbackName}
+        className="w-14 h-14 rounded-lg object-cover border border-[#E2E5EB] dark:border-[#262B35] shrink-0"
+      />
+    );
+  }
+  return (
+    <div
+      className={`w-14 h-14 rounded-lg flex items-center justify-center font-display font-extrabold text-lg shrink-0 ${boxClass}`}
+    >
+      {initialsOf(profile?.displayName || fallbackName, fallbackInitials)}
+    </div>
+  );
+}
 
 interface ExComAndSquadsSectionProps {
   db: PortalDB;
@@ -44,6 +85,36 @@ export function ExComAndSquadsSection({
   const canAccessChair = hasFullAccess;
   const canAccessSecretary =
     hasFullAccess || (currentUser?.assigned && currentUser.role === 'secretary');
+
+  // Public profiles (photo, name, university, club) of role holders, used to
+  // personalise the ExCom cards. Loaded only for signed-in viewers (the
+  // users collection is not public); when unavailable, the cards fall back
+  // to the names from the portal settings, exactly as before. Private
+  // details are never read here.
+  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  useEffect(() => {
+    if (!currentUser) {
+      setProfiles([]);
+      return;
+    }
+    let cancelled = false;
+    listAllUserProfiles()
+      .then((list) => {
+        if (!cancelled) setProfiles(list);
+      })
+      .catch(() => {
+        if (!cancelled) setProfiles([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.uid]);
+
+  const profileForRole = (role: UserRole): UserProfile | null =>
+    profiles.find((p) => p.role === role) ?? null;
+  const ceoProfile = profileForRole('ceo');
+  const chairProfile = profileForRole('chair');
+  const secretaryProfile = profileForRole('secretary');
 
   return (
     <>
@@ -91,17 +162,21 @@ export function ExComAndSquadsSection({
             )}
           </div>
 
-          {/* Tier 1 + Tier 2 Leadership Row */}
-          <div className="grid md:grid-cols-2 gap-6 mb-10">
-            {/* Program Chair & Company CEO — on the dedicated ExCom page the list starts at Tier 2, so this Tier 1 card is ordered after it (nothing is removed). */}
-            <div className={`bg-[#F4F5F7] dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start ${part === 'excom' ? 'order-2' : ''}`}>
-              <div className="w-14 h-14 rounded-lg bg-[#111318] text-white flex items-center justify-center font-display font-extrabold text-lg shrink-0">
-                EX
-              </div>
+          {/* Tier 1 Leadership Row — hierarchy order (decided 2026-11-25):
+              CEO first, then Chair, then Secretary, then the Leads. */}
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            {/* Company CEO — Tier 1, first card. */}
+            <div className="bg-[#F4F5F7] dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start">
+              <PersonAvatar
+                profile={ceoProfile}
+                fallbackName={db.ceoName}
+                fallbackInitials="EX"
+                boxClass="bg-[#111318] text-white"
+              />
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[#5A6270] dark:text-slate-400">
                   <span className="font-semibold text-[#111318] dark:text-white">
-                    Tier 1 · Program Chair &amp; Company CEO
+                    Tier 1 · Company CEO
                   </span>
                   <span aria-hidden="true">·</span>
                   <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
@@ -109,10 +184,64 @@ export function ExComAndSquadsSection({
                   </span>
                 </div>
                 <h3 className="font-display text-lg font-extrabold mt-2 text-[#111318] dark:text-white">
-                  {db.chairName}
+                  {ceoProfile?.displayName || db.ceoName}
                 </h3>
                 <p className="text-xs text-[#5A6270] dark:text-slate-400 mt-0.5">
-                  Program Chair · Company CEO Oversight: <strong className="text-[#111318] dark:text-slate-200">{db.ceoName}</strong>
+                  {ceoProfile
+                    ? [ceoProfile.position || 'Company CEO', ceoProfile.university, ceoProfile.club]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : 'Company CEO Oversight · Ulterior Engineering'}
+                </p>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={canAccessChair ? onOpenPersonalPortal : onOpenExecutivePortal}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#B51B27] hover:underline cursor-pointer"
+                  >
+                    {canAccessChair ? (
+                      <>
+                        <span>
+                          {currentUser?.role === 'ceo'
+                            ? 'Open CEO Executive Console'
+                            : 'Open Executive Console'}
+                        </span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Chair &amp; CEO Email Sign-In</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Program Chair — Tier 1, second card. */}
+            <div className="bg-[#F4F5F7] dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start">
+              <PersonAvatar
+                profile={chairProfile}
+                fallbackName={db.chairName}
+                fallbackInitials="EX"
+                boxClass="bg-[#111318] text-white"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[#5A6270] dark:text-slate-400">
+                  <span className="font-semibold text-[#111318] dark:text-white">
+                    Tier 1 · Program Chair
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                    Full Executive Access
+                  </span>
+                </div>
+                <h3 className="font-display text-lg font-extrabold mt-2 text-[#111318] dark:text-white">
+                  {chairProfile?.displayName || db.chairName}
+                </h3>
+                <p className="text-xs text-[#5A6270] dark:text-slate-400 mt-0.5">
+                  Program Chair · Company CEO Oversight: <strong className="text-[#111318] dark:text-slate-200">{ceoProfile?.displayName || db.ceoName}</strong>
                 </p>
                 <p className="text-xs text-[#5A6270] dark:text-slate-300 mt-3 leading-relaxed">
                   Both the Developer-appointed Program Chair and Company CEO share full operational
@@ -147,12 +276,17 @@ export function ExComAndSquadsSection({
               </div>
             </div>
 
-            {/* Program Secretary — Tier 2 leads the list on the dedicated ExCom page. */}
-            <div className={`bg-[#F4F5F7] dark:bg-[#15181E] border border-[#B51B27]/40 rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start ${part === 'excom' ? 'order-1' : ''}`}>
-              <div className="w-14 h-14 rounded-lg bg-[#B51B27] text-white flex items-center justify-center font-display font-extrabold text-lg shrink-0">
-                GS
-              </div>
-              <div className="flex-1 min-w-0">
+          </div>
+
+          {/* Program Secretary — Tier 2, after the Tier 1 row. */}
+          <div className="bg-[#F4F5F7] dark:bg-[#15181E] border border-[#B51B27]/40 rounded-xl p-6 flex flex-col sm:flex-row gap-5 items-start mb-10">
+            <PersonAvatar
+              profile={secretaryProfile}
+              fallbackName={db.secretaryName}
+              fallbackInitials="GS"
+              boxClass="bg-[#B51B27] text-white"
+            />
+            <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[#5A6270] dark:text-slate-400">
                   <span className="font-semibold text-[#B51B27]">
                     Tier 2 · Program Secretary
@@ -163,10 +297,12 @@ export function ExComAndSquadsSection({
                   </span>
                 </div>
                 <h3 className="font-display text-lg font-extrabold mt-2 text-[#111318] dark:text-white">
-                  {db.secretaryName}
+                  {secretaryProfile?.displayName || db.secretaryName}
                 </h3>
                 <p className="text-xs text-[#5A6270] dark:text-slate-400 mt-0.5">
                   Executive Operations Bridge · Reports directly to Program Chair
+                  {secretaryProfile?.university ? ` · ${secretaryProfile.university}` : ''}
+                  {secretaryProfile?.club ? ` · ${secretaryProfile.club}` : ''}
                 </p>
                 <p className="text-xs text-[#5A6270] dark:text-slate-300 mt-3 leading-relaxed">
                   Coordinates the 5 Core Team Leads, audits cross-squad weekly KPI logs, publishes
@@ -211,7 +347,6 @@ export function ExComAndSquadsSection({
                     )}
                   </button>
                 </div>
-              </div>
             </div>
           </div>
 
@@ -224,6 +359,7 @@ export function ExComAndSquadsSection({
             {CORE_LEADS_LIST.map((lead) => {
               const canOpenThisLead =
                 hasFullAccess || (currentUser?.assigned && currentUser.role === lead.id);
+              const leadProfile = profileForRole(lead.id);
               return (
                 <div
                   key={lead.id}
@@ -243,6 +379,29 @@ export function ExComAndSquadsSection({
                     <p className="text-xs text-[#5A6270] dark:text-slate-400 mt-2.5 leading-relaxed">
                       {lead.desc}
                     </p>
+                    {leadProfile && (
+                      <div className="flex items-center gap-2.5 mt-3.5 pt-3.5 border-t border-[#E2E5EB] dark:border-[#262B35]">
+                        {leadProfile.photoURL ? (
+                          <img
+                            src={leadProfile.photoURL}
+                            alt={leadProfile.displayName}
+                            className="w-9 h-9 rounded-full object-cover border border-[#E2E5EB] dark:border-[#262B35] shrink-0"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-[#B51B27]/10 text-[#B51B27] flex items-center justify-center text-[11px] font-bold shrink-0">
+                            {initialsOf(leadProfile.displayName, '—')}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-[#111318] dark:text-white truncate">
+                            {leadProfile.displayName}
+                          </div>
+                          <div className="text-[11px] text-[#5A6270] dark:text-slate-400 truncate">
+                            {[leadProfile.university, leadProfile.club].filter(Boolean).join(' · ')}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-5 space-y-2">
                     {canOpenThisLead ? (
