@@ -83,6 +83,7 @@ export function ProfilePage({
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadWarning, setLoadWarning] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileExists, setProfileExists] = useState(false);
   const [privateInfo, setPrivateInfo] = useState<UserPrivateInfo | null>(null);
@@ -135,44 +136,102 @@ export function ProfilePage({
       }
       setLoading(true);
       setLoadError(null);
+      setLoadWarning(null);
+
+      const prefillFromAccount = () => {
+        // Empty state: no profile doc yet — prefill from the account
+        // (for another user we only know their uid, so fields stay blank).
+        setProfile(null);
+        setProfileExists(false);
+        setDisplayName(isOwn ? currentUser.displayName || '' : '');
+        setUniversity(isOwn ? currentUser.campus || '' : '');
+        setClub('');
+        setPosition(defaultPositionForRole(isOwn ? currentUser.role : null));
+        setRole((isOwn ? currentUser.role : null) || 'ca');
+        setPhotoURL(isOwn ? currentUser.photoURL : null);
+        setPrivateInfo(null);
+        setPhone('');
+        setSemester('');
+        setEmailDisplay(isOwn ? currentUser.email : '');
+      };
+
+      const isPermissionError = (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        return (
+          msg.includes('permission-denied') ||
+          msg.includes('PERMISSION_DENIED') ||
+          msg.includes('Missing or insufficient permissions')
+        );
+      };
+
       try {
-        const fetched = await fetchUserProfile(targetUid);
-        if (cancelled) return;
-        setProfile(fetched);
-        setProfileExists(Boolean(fetched));
-        if (fetched) {
-          setDisplayName(fetched.displayName);
-          setUniversity(fetched.university);
-          setClub(fetched.club);
-          setPosition(fetched.position || defaultPositionForRole(fetched.role));
-          setRole(fetched.role || 'ca');
-          setPhotoURL(fetched.photoURL);
-        } else {
-          // Empty state: no profile doc yet — prefill from the account
-          // (for another user we only know their uid, so fields stay blank).
-          setDisplayName(isOwn ? currentUser.displayName || '' : '');
-          setUniversity(isOwn ? currentUser.campus || '' : '');
-          setClub('');
-          setPosition(defaultPositionForRole(isOwn ? currentUser.role : null));
-          setRole((isOwn ? currentUser.role : null) || 'ca');
-          setPhotoURL(isOwn ? currentUser.photoURL : null);
+        let rulesBlocked = false;
+        try {
+          const fetched = await fetchUserProfile(targetUid);
+          if (cancelled) return;
+          if (fetched) {
+            setProfile(fetched);
+            setProfileExists(true);
+            setDisplayName(fetched.displayName);
+            setUniversity(fetched.university);
+            setClub(fetched.club);
+            setPosition(fetched.position || defaultPositionForRole(fetched.role));
+            setRole(fetched.role || 'ca');
+            setPhotoURL(fetched.photoURL);
+          } else {
+            prefillFromAccount();
+          }
+        } catch (err) {
+          if (cancelled) return;
+          if (!isPermissionError(err)) throw err;
+          // The live Firestore rules do not include the users rules yet
+          // (default-deny blocks the read). Don't dead-end: for your own
+          // profile, fall back to the account-prefilled form with a clear
+          // warning; saving will also fail until the rules are published.
+          rulesBlocked = true;
+          console.error(err);
+          if (!isOwn) {
+            setLoadError(
+              'Profile access is blocked by the live Firestore security rules. Publish the updated firestore.rules for this database in the Firebase Console, then try again.'
+            );
+            return;
+          }
+          prefillFromAccount();
         }
 
         // PRIVACY GATE: the private document is fetched ONLY when the
         // viewer is allowed to see it (owner / Chair / Secretary /
         // developer). For everyone else it is never requested at all.
         if (canViewPrivateInfo(currentUser, targetUid)) {
-          const priv = await fetchUserPrivateInfo(targetUid);
-          if (cancelled) return;
-          setPrivateInfo(priv);
-          setPhone(priv?.phone || '');
-          setSemester(priv?.semester || '');
-          setEmailDisplay(priv?.email || (isOwn ? currentUser.email : ''));
+          try {
+            const priv = await fetchUserPrivateInfo(targetUid);
+            if (cancelled) return;
+            setPrivateInfo(priv);
+            setPhone(priv?.phone || '');
+            setSemester(priv?.semester || '');
+            setEmailDisplay(priv?.email || (isOwn ? currentUser.email : ''));
+          } catch (err) {
+            if (cancelled) return;
+            console.error(err);
+            // Private info unavailable (e.g. rules not published yet) —
+            // keep the public profile usable and just warn.
+            rulesBlocked = true;
+            setPrivateInfo(null);
+            setPhone('');
+            setSemester('');
+            setEmailDisplay(isOwn ? currentUser.email : '');
+          }
         } else {
           setPrivateInfo(null);
           setPhone('');
           setSemester('');
           setEmailDisplay('');
+        }
+
+        if (rulesBlocked && !cancelled) {
+          setLoadWarning(
+            'Your saved profile could not be reached — the live Firestore security rules for this database do not include the profile rules yet. Publish the updated firestore.rules (and storage.rules for photos) in the Firebase Console for the ai-studio database, then reload. Until then, this form shows your account details and saving may fail.'
+          );
         }
       } catch (err) {
         if (!cancelled) {
@@ -430,6 +489,16 @@ export function ProfilePage({
 
   return chrome(
     <div className="max-w-3xl mx-auto space-y-5">
+      {loadWarning && (
+        <div
+          role="alert"
+          className="p-3.5 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 text-xs text-red-900 dark:text-red-200 flex items-start gap-2"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{loadWarning}</span>
+        </div>
+      )}
+
       {!profileExists && (
         <div className="p-3.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
