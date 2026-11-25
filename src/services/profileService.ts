@@ -6,23 +6,20 @@ import {
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
-import {
-  getDownloadURL,
-  ref as storageRef,
-  uploadBytesResumable,
-} from 'firebase/storage';
-import {
-  auth,
-  db,
-  handleFirestoreError,
-  OperationType,
-  storage,
-} from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { PortalUser, UserPrivateInfo, UserProfile, UserRole } from '../types';
 
 // ============================================================================
 // Profile service — users/{uid} (public) + users/{uid}/private/info (private)
 // ============================================================================
+
+// Profile photos are hosted on Cloudinary (free tier): the Firebase project's
+// Cloud Storage bucket requires the paid Blaze plan, so uploads go to
+// Cloudinary with an unsigned upload preset instead. Each photo is stored
+// under the owner's uid inside the profile-photos folder, so a new upload
+// overwrites the previous photo.
+const CLOUDINARY_CLOUD_NAME = 'qczytu25';
+const CLOUDINARY_UPLOAD_PRESET = 'ue-profile-photos';
 
 function clamp(str: string, max: number): string {
   return (str || '').trim().slice(0, max);
@@ -379,7 +376,7 @@ export async function updateUserRoleAndPosition(input: {
 }
 
 // ---------------------------------------------------------------------------
-// Photo upload (Firebase Storage)
+// Photo upload (Cloudinary)
 // ---------------------------------------------------------------------------
 
 export const MAX_PROFILE_PHOTO_BYTES = 2 * 1024 * 1024;
@@ -403,10 +400,10 @@ export function validateProfilePhotoFile(file: File): string | null {
 }
 
 /**
- * Uploads a cropped square JPEG to profile-photos/{uid}.jpg (overwriting any
- * previous photo), then saves the download URL to users/{uid}.photoURL.
- * Photo upload is owner-only: callers must only invoke this for the
- * signed-in user's own uid (enforced here and in storage.rules).
+ * Uploads a cropped square JPEG to Cloudinary as profile-photos/{uid}
+ * (overwriting any previous photo), then saves the image URL to
+ * users/{uid}.photoURL. Photo upload is owner-only: callers must only
+ * invoke this for the signed-in user's own uid (enforced here).
  */
 export async function uploadProfilePhoto(
   uid: string,
@@ -423,37 +420,44 @@ export async function uploadProfilePhoto(
     throw new Error('The cropped photo is larger than 2 MB. Please try again.');
   }
 
-  const path = `profile-photos/${uid}.jpg`;
-  const fileRef = storageRef(storage, path);
-  const task = uploadBytesResumable(fileRef, blob, { contentType: 'image/jpeg' });
-
   const downloadURL = await new Promise<string>((resolve, reject) => {
-    task.on(
-      'state_changed',
-      (snapshot) => {
-        if (onProgress && snapshot.totalBytes > 0) {
-          onProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
+    const formData = new FormData();
+    formData.append('file', blob, `${uid}.jpg`);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('public_id', uid);
+    formData.append('folder', 'profile-photos');
+
+    const xhr = new XMLHttpRequest();
+    xhr.open(
+      'POST',
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`
+    );
+    xhr.upload.onprogress = (event) => {
+      if (onProgress && event.lengthComputable && event.total > 0) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    xhr.onerror = () => {
+      reject(new Error('Photo upload failed: network error. Please try again.'));
+    };
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText || '{}');
+        if (xhr.status >= 200 && xhr.status < 300 && data.secure_url) {
+          resolve(data.secure_url as string);
+        } else {
+          const message =
+            (data && data.error && data.error.message) ||
+            `upload was rejected (status ${xhr.status})`;
+          reject(new Error(`Photo upload failed: ${message}`));
         }
-      },
-      (error) => {
+      } catch {
         reject(
-          new Error(
-            `Photo upload failed: ${error instanceof Error ? error.message : String(error)}`
-          )
-        );
-      },
-      () => {
-        getDownloadURL(task.snapshot.ref).then(resolve, (error) =>
-          reject(
-            new Error(
-              `Photo uploaded but its URL could not be read: ${
-                error instanceof Error ? error.message : String(error)
-              }`
-            )
-          )
+          new Error('Photo upload failed: unexpected response from the photo service.')
         );
       }
-    );
+    };
+    xhr.send(formData);
   });
 
   try {
