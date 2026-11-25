@@ -404,40 +404,48 @@ export async function upsertRoleAssignment(input: {
       updatedAt: serverTimestamp(),
     });
 
-    if (input.role === 'chair') {
-      const settingsRef = doc(db, 'settings', 'program');
-      const settingsSnap = await getDoc(settingsRef);
-      if (settingsSnap.exists()) {
-        await updateDoc(settingsRef, {
-          chairName: clamp(input.displayName, 120),
-          updatedAt: serverTimestamp(),
-        });
+    // Best-effort sync of leadership display names in settings/program.
+    // Non-developer roles (e.g., Chair updating chairName/ceoName or Secretary
+    // updating settings/program) may lack write access to settings/program, so
+    // failures here must not roll back or misreport the role_assignments write.
+    try {
+      if (input.role === 'chair') {
+        const settingsRef = doc(db, 'settings', 'program');
+        const settingsSnap = await getDoc(settingsRef);
+        if (settingsSnap.exists()) {
+          await updateDoc(settingsRef, {
+            chairName: clamp(input.displayName, 120),
+            updatedAt: serverTimestamp(),
+          });
+        }
       }
-    }
 
-    if (input.role === 'ceo') {
-      const settingsRef = doc(db, 'settings', 'program');
-      const settingsSnap = await getDoc(settingsRef);
-      if (settingsSnap.exists()) {
-        await updateDoc(settingsRef, {
-          ceoName: clamp(input.displayName, 120),
-          updatedAt: serverTimestamp(),
-        });
+      if (input.role === 'ceo') {
+        const settingsRef = doc(db, 'settings', 'program');
+        const settingsSnap = await getDoc(settingsRef);
+        if (settingsSnap.exists()) {
+          await updateDoc(settingsRef, {
+            ceoName: clamp(input.displayName, 120),
+            updatedAt: serverTimestamp(),
+          });
+        }
       }
-    }
 
-    if (input.role === 'secretary') {
-      const settingsRef = doc(db, 'settings', 'program');
-      const settingsSnap = await getDoc(settingsRef);
-      if (settingsSnap.exists()) {
-        await updateDoc(settingsRef, {
-          secretaryName: clamp(
-            `${input.displayName}${input.campus ? ` (${input.campus})` : ''}`,
-            120
-          ),
-          updatedAt: serverTimestamp(),
-        });
+      if (input.role === 'secretary') {
+        const settingsRef = doc(db, 'settings', 'program');
+        const settingsSnap = await getDoc(settingsRef);
+        if (settingsSnap.exists()) {
+          await updateDoc(settingsRef, {
+            secretaryName: clamp(
+              `${input.displayName}${input.campus ? ` (${input.campus})` : ''}`,
+              120
+            ),
+            updatedAt: serverTimestamp(),
+          });
+        }
       }
+    } catch {
+      // Ignore settings/program mirror errors when caller lacks settings write permissions.
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `role_assignments/${emailKey}`);

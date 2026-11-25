@@ -9,7 +9,7 @@ import {
   UserRound,
   Users,
 } from 'lucide-react';
-import { normalizeEmailKey } from '../lib/firebase';
+import { isMainDeveloperEmail, normalizeEmailKey } from '../lib/firebase';
 import {
   canChangeUserRole,
   isDeveloperRoleGuarded,
@@ -179,6 +179,15 @@ export function MembersPage({
     next: { role: UserRole; position: string }
   ) => {
     if (!currentUser) return;
+    const isMainDevRow = isMainDeveloperEmail(row.email);
+    if (isMainDevRow && next.role !== 'developer') {
+      setRowMessage({
+        key: row.key,
+        kind: 'error',
+        text: 'Primary developer accounts are permanently locked to the Platform Developer role.',
+      });
+      return;
+    }
     if (next.role !== row.role && !canChangeUserRole(currentUser)) {
       setRowMessage({
         key: row.key,
@@ -199,6 +208,7 @@ export function MembersPage({
       });
       return;
     }
+    const previousOverride = overrides[row.key];
     setOverrides((prev) => ({ ...prev, [row.key]: { role: next.role, position: next.position } }));
     setBusyKey(row.key);
     setRowMessage(null);
@@ -236,15 +246,28 @@ export function MembersPage({
           });
         } catch (syncErr) {
           // The users/{uid} write already succeeded — surface a warning
-          // instead of crashing. (Server rules may reject Secretary syncs
-          // until the updated firestore.rules are deployed.)
+          // instead of crashing.
           console.error(syncErr);
+          if (!row.uid) {
+            setOverrides((prev) => {
+              const copy = { ...prev };
+              if (previousOverride) copy[row.key] = previousOverride;
+              else delete copy[row.key];
+              return copy;
+            });
+          }
           setRowMessage({
             key: row.key,
             kind: 'warning',
-            text: 'Saved to the profile, but the role registry sync was rejected by the server rules. The change may need a developer to confirm it.',
+            text: row.uid
+              ? 'Saved to the profile, but the role registry sync was rejected by the server rules.'
+              : 'That role change was rejected by the server rules. Please check permissions and try again.',
           });
-          onNotify('Member saved, but role registry sync was rejected.');
+          onNotify(
+            row.uid
+              ? 'Member saved, but role registry sync was rejected.'
+              : 'Role change was rejected by server rules.'
+          );
           return;
         }
       }
@@ -252,6 +275,12 @@ export function MembersPage({
       onNotify(`Updated ${row.displayName}.`);
     } catch (err) {
       console.error(err);
+      setOverrides((prev) => {
+        const copy = { ...prev };
+        if (previousOverride) copy[row.key] = previousOverride;
+        else delete copy[row.key];
+        return copy;
+      });
       setRowMessage({
         key: row.key,
         kind: 'error',
@@ -386,8 +415,10 @@ export function MembersPage({
                 </tr>
               )}
               {filteredRows.map((row) => {
+                const isMainDevRow = isMainDeveloperEmail(row.email);
                 const guarded = isDeveloperRoleGuarded(currentUser, row.role);
                 const canChangeRoles = canChangeUserRole(currentUser);
+                const roleLocked = guarded || isMainDevRow || !canChangeRoles;
                 const roleOpts = (() => {
                   const opts = roleOptionsForViewer(currentUser);
                   if (row.role && !opts.includes(row.role)) return [row.role, ...opts];
@@ -439,8 +470,16 @@ export function MembersPage({
                       <select
                         className={selectClass}
                         value={row.role || 'ca'}
-                        disabled={busy || guarded || !canChangeRoles}
-                        title={guarded ? 'The developer role can never be granted or removed by Chair or Secretary.' : !canChangeRoles ? 'Role changes are Chair/Developer only.' : undefined}
+                        disabled={busy || roleLocked}
+                        title={
+                          isMainDevRow
+                            ? 'Primary developer accounts are permanently locked to Platform Developer.'
+                            : guarded
+                              ? 'The developer role can never be granted or removed by Chair or Secretary.'
+                              : !canChangeRoles
+                                ? 'Role changes are Chair/Developer only.'
+                                : undefined
+                        }
                         onChange={(e) =>
                           void handleRoleOrPositionChange(row, {
                             role: e.target.value as UserRole,
@@ -455,7 +494,12 @@ export function MembersPage({
                           </option>
                         ))}
                       </select>
-                      {guarded && (
+                      {isMainDevRow && (
+                        <p className="text-[10px] mt-1 text-[#5A6270] dark:text-slate-400 max-w-[190px]">
+                          Primary developer — role locked.
+                        </p>
+                      )}
+                      {!isMainDevRow && guarded && (
                         <p className="text-[10px] mt-1 text-[#5A6270] dark:text-slate-400 max-w-[190px]">
                           Developer role — locked for Chair/Secretary.
                         </p>

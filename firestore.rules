@@ -415,7 +415,8 @@ service cloud.firestore {
         && (!data.keys().hasAny(['club']) || (data.club is string && data.club.size() <= 120))
         && (!data.keys().hasAny(['position']) || (data.position is string && data.position.size() <= 140))
         && (!data.keys().hasAny(['role']) || isValidRole(data.role))
-        && (!data.keys().hasAny(['updatedAt']) || data.updatedAt is timestamp);
+        && data.keys().hasAll(['updatedAt'])
+        && data.updatedAt == request.time;
     }
 
     // Private profile doc (users/{uid}/private/info): phone, email, semester only.
@@ -424,7 +425,8 @@ service cloud.firestore {
         && (!data.keys().hasAny(['phone']) || (data.phone is string && data.phone.size() <= 40))
         && (!data.keys().hasAny(['email']) || (data.email is string && data.email.size() <= 160))
         && (!data.keys().hasAny(['semester']) || (data.semester is string && data.semester.size() <= 60))
-        && (!data.keys().hasAny(['updatedAt']) || data.updatedAt is timestamp);
+        && data.keys().hasAll(['updatedAt'])
+        && data.updatedAt == request.time;
     }
 
     // Chair / Secretary / CEO (privileged non-developer editors of user profiles)
@@ -541,8 +543,8 @@ service cloud.firestore {
 
     // ==================== 2. ROLE ASSIGNMENTS (PII + RBAC MASTER) ====================
     match /role_assignments/{emailKey} {
-      allow get: if isVerified() && isValidId(emailKey) && (emailKey == normalizedEmailKey() || isFullAccess());
-      allow list: if isVerified() && isFullAccess();
+      allow get: if isVerified() && isValidId(emailKey) && (emailKey == normalizedEmailKey() || isFullAccess() || isSecretary());
+      allow list: if isVerified() && (isFullAccess() || isSecretary());
       allow create: if isVerified()
         && isValidId(emailKey)
         && isValidRoleAssignment(incoming())
@@ -879,13 +881,13 @@ service cloud.firestore {
               || incoming().role == existing().role
             )
           ) ||
-          // Owner updating their own profile: their role field may not change.
+          // Owner updating their own profile: their role field may not change or escalate.
           (
             request.auth.uid == userId
             && (
               !incoming().keys().hasAny(['role'])
-              || !existing().keys().hasAny(['role'])
-              || incoming().role == existing().role
+              || (existing().keys().hasAny(['role']) && incoming().role == existing().role)
+              || (!existing().keys().hasAny(['role']) && (incoming().role == 'ca' || (hasRoleDoc() && incoming().role == roleDoc().role)))
             )
           )
         );
@@ -896,6 +898,7 @@ service cloud.firestore {
       // developer. No other user may ever read or write this document.
       match /private/{docId} {
         allow get: if isVerified()
+          && isValidId(userId)
           && docId == 'info'
           && (
             request.auth.uid == userId
@@ -905,6 +908,7 @@ service cloud.firestore {
           );
         allow list: if false;
         allow create, update: if isVerified()
+          && isValidId(userId)
           && docId == 'info'
           && isValidUserPrivateInfo(incoming())
           && isWritePermitted()
@@ -914,7 +918,7 @@ service cloud.firestore {
             || isSecretary()
             || (hasRoleDoc() && roleDoc().role == 'chair')
           );
-        allow delete: if isVerified() && docId == 'info' && isDeveloper();
+        allow delete: if isVerified() && isValidId(userId) && docId == 'info' && isDeveloper();
       }
     }
   }
