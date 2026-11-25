@@ -601,8 +601,8 @@ export default function App() {
     const role = currentUser.role;
     const hasFullAccess = isFullAccessRole(role);
 
-    // A. Role Assignments (Developer & Appointed Chair ONLY)
-    if (hasFullAccess) {
+    // A. Role Assignments (Developer, Appointed Chair/CEO, and Secretary for Manage Members)
+    if (hasFullAccess || role === 'secretary') {
       unsubs.push(
         onSnapshot(
           collection(firestore, 'role_assignments'),

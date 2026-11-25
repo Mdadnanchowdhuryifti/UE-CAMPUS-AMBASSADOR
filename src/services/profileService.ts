@@ -296,7 +296,7 @@ export async function saveUserProfile(input: SaveUserProfileInput): Promise<void
   // Role changes: privileged viewers only, and never grant/remove
   // "developer" unless the viewer is a developer.
   if (
-    typeof input.publicFields.role !== 'undefined' &&
+    input.publicFields.role != null &&
     canChangeUserRole(viewer) &&
     !isDeveloperRoleGuarded(viewer, input.publicFields.role)
   ) {

@@ -276,41 +276,40 @@
     },
     "UserPublicProfile": {
       "title": "UserPublicProfile",
-      "description": "Public non-PII user profile stored at users/{uid}. Created with role='ambassador' and profileComplete=false on first Google sign-in. Users cannot set or modify their own role; 'developer' is assigned manually in the Firebase Console only.",
+      "description": "Public non-PII user profile stored at users/{uid}. Only non-sensitive fields live here; phone, email, and semester are isolated in users/{uid}/private/info.",
       "type": "object",
       "properties": {
-        "fullName": { "type": "string", "minLength": 0, "maxLength": 120 },
-        "photoURL": { "type": "string", "maxLength": 512 },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "photoURL": { "type": "string", "maxLength": 1000 },
         "university": { "type": "string", "maxLength": 120 },
         "club": { "type": "string", "maxLength": 120 },
-        "position": { "type": "string", "maxLength": 100 },
-        "tier": { "type": "string", "maxLength": 60 },
-        "role": { "type": "string", "enum": ["developer", "chair", "secretary", "lead", "ambassador"] },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "profileComplete": { "type": "boolean" }
+        "position": { "type": "string", "maxLength": 140 },
+        "role": { "type": "string", "enum": ["developer", "chair", "ceo", "secretary", "lead1", "lead2", "lead3", "lead4", "lead5", "ca"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["fullName", "photoURL", "university", "club", "position", "tier", "role", "createdAt", "profileComplete"]
+      "required": ["updatedAt"]
     },
     "UserPrivateInfo": {
       "title": "UserPrivateInfo",
-      "description": "Private PII sub-document stored at users/{uid}/private/info. Strictly readable only by the owning user or a verified Developer. Email is auto-filled from Google Auth and immutable.",
+      "description": "Private PII sub-document stored at users/{uid}/private/info. Strictly readable and writable only by the owning user, Chair, Secretary, or Platform Developer.",
       "type": "object",
       "properties": {
-        "phone": { "type": "string", "maxLength": 24, "pattern": "^$|^[+]?[0-9\\s\\-()]{8,20}$" },
-        "email": { "type": "string", "format": "email", "minLength": 5, "maxLength": 160 },
-        "semester": { "type": "string", "maxLength": 40 }
+        "phone": { "type": "string", "maxLength": 40 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "semester": { "type": "string", "maxLength": 60 },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["phone", "email", "semester"]
+      "required": ["updatedAt"]
     }
   },
   "firestore": {
     "/users/{uid}": {
       "schema": { "$ref": "#/entities/UserPublicProfile" },
-      "description": "Public non-PII user profiles keyed by Firebase Auth UID. Role is locked to 'ambassador' on create and immutable by the user; 'developer' can only be assigned manually in the Firebase Console."
+      "description": "Public non-PII user profiles keyed by Firebase Auth UID. Owners cannot escalate their own role; Chair/Secretary/CEO can never grant or remove the developer role."
     },
     "/users/{uid}/private/{docId}": {
       "schema": { "$ref": "#/entities/UserPrivateInfo" },
-      "description": "Private user PII subcollection (doc ID: info) storing phone, email, and semester. Isolated strictly to the owning user or Platform Developers."
+      "description": "Private user PII subcollection (doc ID: info) storing phone, email, and semester. Isolated strictly to the owning user, Chair, Secretary, or Platform Developers."
     },
     "/settings/{settingId}": {
       "schema": { "$ref": "#/entities/ProgramSettings" },

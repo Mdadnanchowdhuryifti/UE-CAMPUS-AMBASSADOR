@@ -15,6 +15,7 @@ import {
   UserRound,
   Users,
 } from 'lucide-react';
+import { isMainDeveloperEmail } from '../lib/firebase';
 import {
   canChangeUserRole,
   canViewPrivateInfo,
@@ -112,7 +113,10 @@ export function ProfilePage({
   const access = getProfileFieldAccess(currentUser, targetUid || '');
   const showRoleControl = Boolean(currentUser && canChangeUserRole(currentUser) && access.canEdit);
   const targetIsDeveloper = (profile?.role ?? (isOwn ? currentUser?.role : null)) === 'developer';
-  const roleGuarded = isDeveloperRoleGuarded(currentUser, profile?.role ?? (isOwn ? currentUser?.role ?? null : null));
+  const isMainDevProfile = isMainDeveloperEmail(emailDisplay || (isOwn ? currentUser?.email : ''));
+  const roleGuarded =
+    isMainDevProfile ||
+    isDeveloperRoleGuarded(currentUser, profile?.role ?? (isOwn ? currentUser?.role ?? null : null));
   const roleOptions = useMemo(() => {
     const opts = roleOptionsForViewer(currentUser);
     // Always keep the target's current role visible in the list.
@@ -705,7 +709,12 @@ export function ProfilePage({
                     </option>
                   ))}
                 </select>
-                {roleGuarded && targetIsDeveloper && (
+                {isMainDevProfile && (
+                  <p className="text-[11px] mt-1.5 text-[#5A6270] dark:text-slate-400">
+                    Primary developer account — role is permanently locked to Platform Developer.
+                  </p>
+                )}
+                {!isMainDevProfile && roleGuarded && targetIsDeveloper && (
                   <p className="text-[11px] mt-1.5 text-[#5A6270] dark:text-slate-400">
                     This user has the developer role. Chair and Secretary can never grant or
                     remove the developer role.
