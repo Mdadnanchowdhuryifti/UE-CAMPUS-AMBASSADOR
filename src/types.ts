@@ -300,6 +300,10 @@ export interface SystemErrorLog {
 export interface UserProfile {
   uid: string;
   displayName: string;
+  /** Public contact fields (decided 2026-11-26): email + semester are
+   * readable by everyone, phone stays signed-in-only in the private doc. */
+  email: string;
+  semester: string;
   photoURL: string | null;
   /** Stored under the existing `campus` naming in role data; labelled "University" in the UI. */
   university: string;

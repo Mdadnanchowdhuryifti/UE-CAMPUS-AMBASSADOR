@@ -123,7 +123,7 @@ export function Header({
 
           {/* Zone 3: Notifications + Primary Action (+ Developer /admin shortcut) */}
           <div className="flex items-center gap-2 shrink-0">
-            <NotificationBell />
+            <NotificationBell currentUser={currentUser} />
             {currentUser?.role === 'developer' && (
               <button
                 type="button"

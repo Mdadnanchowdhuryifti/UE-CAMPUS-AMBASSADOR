@@ -408,7 +408,9 @@ service cloud.firestore {
     // Writes use setDoc(..., merge), so validation checks the fields that are
     // present and rejects any unknown field outright.
     function isValidUserProfile(data) {
-      return data.keys().hasOnly(['displayName', 'photoURL', 'university', 'club', 'position', 'role', 'updatedAt'])
+      return data.keys().hasOnly(['displayName', 'photoURL', 'university', 'club', 'position', 'role', 'email', 'semester', 'updatedAt'])
+        && (!data.keys().hasAny(['email']) || (data.email is string && data.email.size() <= 160))
+        && (!data.keys().hasAny(['semester']) || (data.semester is string && data.semester.size() <= 60))
         && (!data.keys().hasAny(['displayName']) || (data.displayName is string && data.displayName.size() <= 120))
         && (!data.keys().hasAny(['photoURL']) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1000))
         && (!data.keys().hasAny(['university']) || (data.university is string && data.university.size() <= 120))
@@ -427,6 +429,25 @@ service cloud.firestore {
         && (!data.keys().hasAny(['semester']) || (data.semester is string && data.semester.size() <= 60))
         && data.keys().hasAll(['updatedAt'])
         && data.updatedAt == request.time;
+    }
+
+    // Announcement authors: developer, Chair, CEO, Secretary and squad Leads.
+    function canAnnounce() {
+      return isDeveloper()
+        || isChairOrCeo()
+        || isSecretary()
+        || (hasRoleDoc() && roleDoc().role in ['lead1', 'lead2', 'lead3', 'lead4', 'lead5']);
+    }
+
+    function isValidAnnouncement(data) {
+      return data.keys().hasOnly(['title', 'message', 'authorUid', 'authorName', 'authorRole', 'createdAt'])
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 120
+        && data.message is string && data.message.size() > 0 && data.message.size() <= 2000
+        && data.authorUid is string
+        && data.authorName is string && data.authorName.size() <= 120
+        && (!data.keys().hasAny(['authorRole']) || data.authorRole == null || isValidRole(data.authorRole))
+        && data.keys().hasAll(['createdAt'])
+        && data.createdAt == request.time;
     }
 
     // Chair / Secretary / CEO (privileged non-developer editors of user profiles)
@@ -829,12 +850,13 @@ service cloud.firestore {
     // and change roles, but can NEVER set role == 'developer' and can NEVER
     // modify a profile whose existing role == 'developer'.
     match /users/{userId} {
-      allow get: if isVerified() && isValidId(userId);
-      // Listing public profiles is open to any verified signed-in user so
-      // the ExCom page can show role holders (photo, name, university,
-      // club). The users document holds PUBLIC fields only — private info
-      // lives in the locked private subcollection below.
-      allow list: if isVerified();
+      // The users document holds PUBLIC fields only (name, photo,
+      // university, club, position, role, email, semester) and is readable
+      // by everyone, signed in or not (decided 2026-11-26). The phone
+      // number lives in the private subcollection below and stays
+      // signed-in-only.
+      allow get: if isValidId(userId);
+      allow list: if true;
       allow create: if isVerified()
         && isValidId(userId)
         && isValidUserProfile(incoming())
@@ -897,19 +919,14 @@ service cloud.firestore {
         );
       allow delete: if isVerified() && isValidId(userId) && isDeveloper();
 
-      // Private info: phone / email / semester.
-      // Readable and writable ONLY by the owner, Chair, Secretary and
-      // developer. No other user may ever read or write this document.
+      // Private info: the phone number (email / semester moved to the
+      // public document on 2026-11-26; older docs may still hold copies).
+      // Readable by ANY verified signed-in member; writable ONLY by the
+      // owner, Chair, Secretary and developer.
       match /private/{docId} {
         allow get: if isVerified()
           && isValidId(userId)
-          && docId == 'info'
-          && (
-            request.auth.uid == userId
-            || isDeveloper()
-            || isSecretary()
-            || (hasRoleDoc() && roleDoc().role == 'chair')
-          );
+          && docId == 'info';
         allow list: if false;
         allow create, update: if isVerified()
           && isValidId(userId)
@@ -924,6 +941,24 @@ service cloud.firestore {
           );
         allow delete: if isVerified() && isValidId(userId) && docId == 'info' && isDeveloper();
       }
+    }
+
+    // ==================== 13. ANNOUNCEMENTS ====================
+    // Posted by Chair / Secretary / CEO / Leads / developer; readable by
+    // every signed-in member (shown in the bell panel). The same message
+    // is emailed to members by the client through EmailJS.
+    match /announcements/{announcementId} {
+      allow get, list: if isVerified();
+      allow create: if isVerified()
+        && isValidId(announcementId)
+        && isValidAnnouncement(incoming())
+        && incoming().authorUid == request.auth.uid
+        && isWritePermitted()
+        && canAnnounce();
+      allow update: if false;
+      allow delete: if isVerified()
+        && isValidId(announcementId)
+        && (isDeveloper() || existing().authorUid == request.auth.uid);
     }
   }
 }

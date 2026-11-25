@@ -182,6 +182,8 @@ export function ProfilePage({
             setPosition(fetched.position || defaultPositionForRole(fetched.role));
             setRole(fetched.role || 'ca');
             setPhotoURL(fetched.photoURL);
+            setEmailDisplay(fetched.email || '');
+            setSemester(fetched.semester || '');
           } else {
             prefillFromAccount();
           }
@@ -212,8 +214,12 @@ export function ProfilePage({
             if (cancelled) return;
             setPrivateInfo(priv);
             setPhone(priv?.phone || '');
-            setSemester(priv?.semester || '');
-            setEmailDisplay(priv?.email || (isOwn ? currentUser.email : ''));
+            // Legacy fallback: profiles saved before email/semester became
+            // public fields may only have them in the private document.
+            setSemester((prev) => prev || priv?.semester || '');
+            setEmailDisplay(
+              (prev) => prev || priv?.email || (isOwn ? currentUser.email : '')
+            );
           } catch (err) {
             if (cancelled) return;
             console.error(err);
@@ -222,19 +228,17 @@ export function ProfilePage({
             rulesBlocked = true;
             setPrivateInfo(null);
             setPhone('');
-            setSemester('');
-            setEmailDisplay(isOwn ? currentUser.email : '');
           }
         } else {
+          // Signed-out viewer: no phone (it is never fetched), but the
+          // public email/semester loaded above stay visible.
           setPrivateInfo(null);
           setPhone('');
-          setSemester('');
-          setEmailDisplay('');
         }
 
         if (rulesBlocked && !cancelled) {
           setLoadWarning(
-            'Your saved profile could not be reached — the live Firestore security rules for this database do not include the profile rules yet. Publish the updated firestore.rules (and storage.rules for photos) in the Firebase Console for the ai-studio database, then reload. Until then, this form shows your account details and saving may fail.'
+            'Your saved profile could not be reached — the live Firestore security rules for this database do not include the profile rules yet. Publish the updated firestore.rules in the Firebase Console for the ai-studio database, then reload. Until then, this form shows your account details and saving may fail.'
           );
         }
       } catch (err) {
@@ -731,15 +735,16 @@ export function ProfilePage({
           </div>
         </section>
 
-        {/* Private fields — rendered only for viewers allowed to see them. */}
-        {showPrivate && (
+        {/* Contact details — email + semester are public; the phone number
+            is visible to signed-in members only and is fetched only for them. */}
+        {(
           <section className={`${cardClass} p-5 sm:p-6 space-y-4`}>
             <h2 className="text-sm font-bold text-[#111318] dark:text-white flex items-center gap-2">
-              <Lock className="w-4 h-4 text-[#B51B27]" /> Private details
+              <Lock className="w-4 h-4 text-[#B51B27]" /> Contact details
             </h2>
             <p className="text-[11px] text-[#5A6270] dark:text-slate-400 -mt-2">
-              Visible only to {isOwn ? 'you' : 'the profile owner'}, the Chair, the Secretary and
-              the developer.
+              Email and semester are public. The phone number is visible to signed-in
+              members only.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -757,6 +762,7 @@ export function ProfilePage({
                   />
                 </div>
               </div>
+              {showPrivate ? (
               <div>
                 <label htmlFor="profile-phone" className={labelClass}>
                   Phone
@@ -775,6 +781,14 @@ export function ProfilePage({
                   />
                 </div>
               </div>
+              ) : (
+              <div>
+                <label className={labelClass}>Phone</label>
+                <p className="text-xs text-[#5A6270] dark:text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2.5">
+                  Sign in to view the phone number.
+                </p>
+              </div>
+              )}
               <div>
                 <label htmlFor="profile-semester" className={labelClass}>
                   Semester
