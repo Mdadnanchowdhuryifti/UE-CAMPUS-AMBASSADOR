@@ -707,7 +707,7 @@ export function ProfilePage({
                 </select>
                 {roleGuarded && targetIsDeveloper && (
                   <p className="text-[11px] mt-1.5 text-[#5A6270] dark:text-slate-400">
-                    This user has the developer role. Chair and Secretary can never grant or
+                    This user has the developer role. Only a developer can grant or
                     remove the developer role.
                   </p>
                 )}
