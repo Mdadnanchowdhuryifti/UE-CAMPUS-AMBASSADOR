@@ -17,6 +17,11 @@ import {
   roleOptionsForViewer,
   updateUserRoleAndPosition,
 } from '../services/profileService';
+import {
+  canEditRecruitmentLink,
+  saveRecruitmentFormUrl,
+  subscribeRecruitmentFormUrl,
+} from '../services/recruitmentService';
 import { ROLE_LABELS, upsertRoleAssignment } from '../services/portalService';
 import {
   defaultPositionForRole,
@@ -369,6 +374,9 @@ export function MembersPage({
 
   return chrome(
     <div className="space-y-5">
+      {canEditRecruitmentLink(currentUser) && (
+        <RecruitmentLinkCard currentUser={currentUser} />
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
         <div>
           <h1 className="font-display text-xl sm:text-2xl font-extrabold text-[#111318] dark:text-white flex items-center gap-2">
@@ -581,5 +589,68 @@ export function MembersPage({
         semester) are never shown on this page.
       </p>
     </div>
+  );
+}
+
+
+/** Editor for the recruitment Google Form link (Chair / Secretary / developer). */
+function RecruitmentLinkCard({ currentUser }: { currentUser: PortalUser | null }) {
+  const [currentUrl, setCurrentUrl] = useState('');
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = subscribeRecruitmentFormUrl((url) => {
+      setCurrentUrl(url);
+      setDraft((prev) => (prev === '' ? url : prev));
+    });
+    return unsub;
+  }, []);
+
+  const handleSave = async () => {
+    if (!currentUser || saving) return;
+    setSaving(true);
+    setNote(null);
+    try {
+      await saveRecruitmentFormUrl(draft, currentUser);
+      setNote('Form link saved. Applicants will now see the new link.');
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : 'Could not save the form link.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className={`${cardClass} p-5 space-y-3`}>
+      <h2 className="text-sm font-bold text-[#111318] dark:text-white">
+        Recruitment Google Form link
+      </h2>
+      <p className="text-[11px] text-[#5A6270] dark:text-slate-400 -mt-1">
+        Shown to every applicant inside the application form. Only the Chair, the
+        Secretary and the developer can change it. Current link:{' '}
+        <span className="font-mono break-all">{currentUrl}</span>
+      </p>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input
+          type="url"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="https://forms.gle/…"
+          className="flex-1 bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2.5 text-sm text-[#111318] dark:text-slate-100 focus:outline-none focus:border-[#B51B27]"
+          aria-label="Recruitment Google Form link"
+        />
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || !draft.trim() || draft.trim() === currentUrl}
+          className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-[#B51B27] hover:bg-[#92141E] disabled:opacity-50 text-white text-sm font-semibold cursor-pointer"
+        >
+          {saving ? 'Saving…' : 'Save link'}
+        </button>
+      </div>
+      {note && <p className="text-[11px] text-[#5A6270] dark:text-slate-400">{note}</p>}
+    </section>
   );
 }

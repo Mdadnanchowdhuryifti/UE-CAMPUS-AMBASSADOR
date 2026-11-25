@@ -3,12 +3,17 @@ import {
   AlertCircle,
   BookOpen,
   Crown,
+  ExternalLink,
   Lock,
   ShieldCheck,
   Terminal,
   X,
 } from 'lucide-react';
 import { RECRUITMENT_ROLE_ITEMS } from '../data/playbook';
+import {
+  DEFAULT_RECRUITMENT_FORM_URL,
+  subscribeRecruitmentFormUrl,
+} from '../services/recruitmentService';
 import {
   getFirstOpenRecruitmentRoleTitle,
   hasAnyOpenRecruitmentRole,
@@ -372,6 +377,13 @@ export function ApplyModal({
   const [squad, setSquad] = useState<SquadName>(defaultSquad);
   const [exp, setExp] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [formUrl, setFormUrl] = useState(DEFAULT_RECRUITMENT_FORM_URL);
+
+  useEffect(() => {
+    if (!open) return;
+    const unsub = subscribeRecruitmentFormUrl(setFormUrl);
+    return unsub;
+  }, [open ]);
 
   const anyOpen = hasAnyOpenRecruitmentRole(recruitmentStatus);
   const selectedRoleOpen = isRoleOpenForRecruitment(recruitmentStatus, role);
@@ -597,6 +609,24 @@ export function ApplyModal({
                 placeholder="Mention IEEE, Robotics, EEE/CSE club leadership and how you would grow Ulterior Engineering on campus..."
                 className="w-full bg-[#F4F5F7] dark:bg-[#0D0F12] text-[#111318] dark:text-slate-100 border border-[#E2E5EB] dark:border-[#262B35] rounded-lg px-3 py-2"
               />
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 space-y-2">
+              <div className="font-bold text-[#111318] dark:text-white">
+                Required: Official Google Form
+              </div>
+              <p className="text-[#5A6270] dark:text-slate-300 leading-relaxed">
+                Every applicant for Team Lead and Campus Ambassador must also complete
+                the official Google Form. Your application is not complete without it.
+              </p>
+              <a
+                href={formUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 font-semibold text-[#B51B27] hover:underline"
+              >
+                Open the Google Form <ExternalLink className="w-3.5 h-3.5" />
+              </a>
             </div>
 
             <button
