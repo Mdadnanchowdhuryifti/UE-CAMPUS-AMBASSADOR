@@ -12,7 +12,7 @@ import {
   isFullAccessRole,
 } from '../services/portalService';
 import { listAllUserProfiles } from '../services/profileService';
-import { PortalDB, PortalUser, SquadName, UserProfile, UserRole } from '../types';
+import { PortalDB, PortalUser, RoleAssignment, SquadName, UserProfile, UserRole } from '../types';
 
 function initialsOf(name: string, fallback: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -112,9 +112,27 @@ export function ExComAndSquadsSection({
 
   const profileForRole = (role: UserRole): UserProfile | null =>
     profiles.find((p) => p.role === role) ?? null;
-  const ceoProfile = profileForRole('ceo');
-  const chairProfile = profileForRole('chair');
-  const secretaryProfile = profileForRole('secretary');
+  // Who actually holds a role, per the role_assignments registry — the
+  // source of truth for the assigned person's name and email.
+  const assignmentForRole = (role: UserRole): RoleAssignment | null =>
+    db.roleAssignments.find((a) => a.role === role) ?? null;
+  // A role holder's public profile: match by email first (a saved
+  // profile's own role field may still say 'ca'), then by role.
+  const profileForAssignment = (
+    assignment: RoleAssignment | null,
+    role: UserRole
+  ): UserProfile | null => {
+    if (assignment?.email) {
+      const byEmail = profiles.find(
+        (p) => p.email && p.email.toLowerCase() === assignment.email.toLowerCase()
+      );
+      if (byEmail) return byEmail;
+    }
+    return profileForRole(role);
+  };
+  const ceoProfile = profileForAssignment(assignmentForRole('ceo'), 'ceo');
+  const chairProfile = profileForAssignment(assignmentForRole('chair'), 'chair');
+  const secretaryProfile = profileForAssignment(assignmentForRole('secretary'), 'secretary');
 
   return (
     <>
@@ -359,7 +377,10 @@ export function ExComAndSquadsSection({
             {CORE_LEADS_LIST.map((lead) => {
               const canOpenThisLead =
                 hasFullAccess || (currentUser?.assigned && currentUser.role === lead.id);
-              const leadProfile = profileForRole(lead.id);
+              const leadAssignment = assignmentForRole(lead.id);
+              const leadProfile = profileForAssignment(leadAssignment, lead.id);
+              const leadHolderName =
+                leadProfile?.displayName || leadAssignment?.displayName || null;
               return (
                 <div
                   key={lead.id}
@@ -379,25 +400,27 @@ export function ExComAndSquadsSection({
                     <p className="text-xs text-[#5A6270] dark:text-slate-400 mt-2.5 leading-relaxed">
                       {lead.desc}
                     </p>
-                    {leadProfile && (
+                    {leadHolderName && (
                       <div className="flex items-center gap-2.5 mt-3.5 pt-3.5 border-t border-[#E2E5EB] dark:border-[#262B35]">
-                        {leadProfile.photoURL ? (
+                        {leadProfile?.photoURL ? (
                           <img
                             src={leadProfile.photoURL}
-                            alt={leadProfile.displayName}
+                            alt={leadHolderName}
                             className="w-9 h-9 rounded-full object-cover border border-[#E2E5EB] dark:border-[#262B35] shrink-0 transition-transform duration-300 hover:scale-110"
                           />
                         ) : (
                           <div className="w-9 h-9 rounded-full bg-[#B51B27]/10 text-[#B51B27] flex items-center justify-center text-[11px] font-bold shrink-0">
-                            {initialsOf(leadProfile.displayName, '—')}
+                            {initialsOf(leadHolderName, '—')}
                           </div>
                         )}
                         <div className="min-w-0">
                           <div className="text-xs font-semibold text-[#111318] dark:text-white truncate">
-                            {leadProfile.displayName}
+                            {leadHolderName}
                           </div>
                           <div className="text-[11px] text-[#5A6270] dark:text-slate-400 truncate">
-                            {[leadProfile.university, leadProfile.club].filter(Boolean).join(' · ')}
+                            {[leadProfile?.university || leadAssignment?.campus, leadProfile?.club]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </div>
                         </div>
                       </div>
