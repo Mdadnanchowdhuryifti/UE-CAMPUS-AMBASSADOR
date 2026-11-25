@@ -830,7 +830,11 @@ service cloud.firestore {
     // modify a profile whose existing role == 'developer'.
     match /users/{userId} {
       allow get: if isVerified() && isValidId(userId);
-      allow list: if isVerified() && (isDeveloper() || isChairOrCeo() || isSecretary());
+      // Listing public profiles is open to any verified signed-in user so
+      // the ExCom page can show role holders (photo, name, university,
+      // club). The users document holds PUBLIC fields only — private info
+      // lives in the locked private subcollection below.
+      allow list: if isVerified();
       allow create: if isVerified()
         && isValidId(userId)
         && isValidUserProfile(incoming())
