@@ -836,8 +836,13 @@ service cloud.firestore {
         && (
           // Developer (Tier 0) may create any profile.
           isDeveloper() ||
-          // Chair / Secretary / CEO may create another user's profile — never with the developer role.
-          (isChairSecretaryOrCeo() && (!incoming().keys().hasAny(['role']) || incoming().role != 'developer')) ||
+          // Chair / CEO may create another user's profile with a role —
+          // never with the developer role.
+          (isChairOrCeo() && (!incoming().keys().hasAny(['role']) || incoming().role != 'developer')) ||
+          // Secretary may create another user's profile only without
+          // granting a role (absent, or the default 'ca') — role changes
+          // are Chair-only (decided 2026-11-25).
+          (isSecretary() && (!incoming().keys().hasAny(['role']) || incoming().role == 'ca')) ||
           // Owner creating their own profile: role must be 'ca' or match their role_assignments role.
           (
             request.auth.uid == userId
@@ -855,12 +860,24 @@ service cloud.firestore {
         && (
           // Developer (Tier 0) may update any profile.
           isDeveloper() ||
-          // Chair / Secretary / CEO may update others — never granting or
-          // removing the developer role (other fields of a developer's
-          // profile may still be edited).
+          // Chair / CEO (Tier 1) may update others, including role changes —
+          // never granting or removing the developer role (other fields of
+          // a developer's profile may still be edited).
           (
-            isChairSecretaryOrCeo()
+            isChairOrCeo()
             && developerRoleNotGrantedOrRemoved()
+          ) ||
+          // Secretary may update others (positions and other fields) but
+          // may NEVER change the role field — role changes are Chair-only
+          // (decided 2026-11-25).
+          (
+            isSecretary()
+            && developerRoleNotGrantedOrRemoved()
+            && (
+              !incoming().keys().hasAny(['role'])
+              || !existing().keys().hasAny(['role'])
+              || incoming().role == existing().role
+            )
           ) ||
           // Owner updating their own profile: their role field may not change.
           (
