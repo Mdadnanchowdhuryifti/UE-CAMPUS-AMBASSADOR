@@ -167,7 +167,7 @@ export function NotificationBell({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 z-50 w-[340px] max-w-[86vw] rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#12151C] shadow-2xl overflow-hidden">
+        <div className="absolute right-0 top-12 z-50 w-[340px] max-w-[86vw] max-sm:fixed max-sm:left-4 max-sm:right-4 max-sm:top-[72px] max-sm:w-auto max-sm:max-w-none rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#12151C] shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
             <span className="flex items-center gap-2 text-sm font-bold text-[#111318] dark:text-white">
               <Megaphone className="w-4 h-4 text-[#B51B27]" /> Announcements
