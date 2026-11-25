@@ -160,8 +160,15 @@ export function MembersPage({
       });
     }
 
-    return merged.sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [profiles, portalData.roleAssignments, overrides]);
+    // Developer accounts are visible only to developers. Chair and
+    // Secretary never see developer rows in this list.
+    const visible =
+      currentUser?.role === 'developer'
+        ? merged
+        : merged.filter((r) => r.role !== 'developer' && !isMainDeveloperEmail(r.email));
+
+    return visible.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [profiles, portalData.roleAssignments, overrides, currentUser]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -569,8 +576,9 @@ export function MembersPage({
         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
         Role changes are Chair/Developer only — the Secretary can change positions but not
         roles. The developer role never appears in these dropdowns for Chair or Secretary, and a
-        developer&apos;s role cannot be changed here. Private details (phone, email, semester) are
-        never shown on this page.
+        developer&apos;s role cannot be changed here. Developer accounts are hidden from the
+        Chair and the Secretary — only developers can see them. Private details (phone, email,
+        semester) are never shown on this page.
       </p>
     </div>
   );
