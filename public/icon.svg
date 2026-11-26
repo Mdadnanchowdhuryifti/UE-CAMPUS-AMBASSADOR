@@ -3,8 +3,10 @@
   <rect x="24" y="24" width="464" height="464" rx="76" stroke="#262B35" stroke-width="8"/>
   <!-- U -->
   <path d="M96 144H162V300C162 325 178 340 202 340C226 340 242 325 242 300V144H308V303C308 367 265 403 202 403C139 403 96 367 96 303V144Z" fill="#FFFFFF"/>
-  <!-- E bars with UE Crimson middle bar -->
-  <rect x="342" y="144" width="114" height="52" rx="4" fill="#FFFFFF"/>
-  <rect x="342" y="236" width="94" height="52" rx="4" fill="#B51B27"/>
-  <rect x="342" y="328" width="114" height="52" rx="4" fill="#FFFFFF"/>
+  <!-- Grey blob inside the U bowl (official UE mark detail) -->
+  <path d="M148 322 C144 292 156 264 176 257 C194 251 208 266 203 285 C201 295 209 299 221 292 C236 284 250 294 247 312 C243 334 225 346 198 343 C172 340 152 336 148 322 Z" fill="#9AA3AD"/>
+  <!-- E: three red bars, no stem (official UE mark) -->
+  <rect x="342" y="144" width="114" height="52" rx="4" fill="#ED1C24"/>
+  <rect x="342" y="236" width="94" height="52" rx="4" fill="#ED1C24"/>
+  <rect x="342" y="328" width="114" height="52" rx="4" fill="#ED1C24"/>
 </svg>

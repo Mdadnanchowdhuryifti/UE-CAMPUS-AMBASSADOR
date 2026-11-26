@@ -10,6 +10,7 @@ import {
   Users,
 } from 'lucide-react';
 import { HeroSection } from '../components/HeroSection';
+import { Reveal } from '../components/Reveal';
 import { PrevNext } from '../components/PrevNext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PortalDB, PortalUser, SquadName } from '../types';
@@ -94,11 +95,11 @@ export default function HomePage({
             Everything, on its own page
           </h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
-            {HIGHLIGHTS.map((item) => (
+            {HIGHLIGHTS.map((item, i) => (
+              <Reveal key={item.path} delay={i * 70} className="h-full">
               <Link
-                key={item.path}
                 to={item.path}
-                className="card-lift group bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-5 flex items-start gap-4 hover:border-[#B51B27] focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-2"
+                className="card-lift group h-full bg-white dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-5 flex items-start gap-4 hover:border-[#B51B27] focus-visible:outline-2 focus-visible:outline-[#B51B27] focus-visible:outline-offset-2"
               >
                 <span className="w-11 h-11 rounded-lg bg-[#B51B27]/10 text-[#B51B27] flex items-center justify-center shrink-0 transition-all duration-150 group-hover:bg-[#B51B27] group-hover:text-white group-hover:scale-110">
                   <item.icon className="w-5 h-5" aria-hidden="true" />
@@ -116,6 +117,7 @@ export default function HomePage({
                   </span>
                 </span>
               </Link>
+              </Reveal>
             ))}
           </div>
         </div>

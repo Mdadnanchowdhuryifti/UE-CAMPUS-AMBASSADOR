@@ -12,6 +12,7 @@ import {
   isFullAccessRole,
 } from '../services/portalService';
 import { listAllUserProfiles } from '../services/profileService';
+import { Reveal } from './Reveal';
 import { PortalDB, PortalUser, RoleAssignment, SquadName, UserProfile, UserRole } from '../types';
 
 function initialsOf(name: string, fallback: string): string {
@@ -370,7 +371,7 @@ export function ExComAndSquadsSection({
             portfolio &amp; squad)
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {CORE_LEADS_LIST.map((lead) => {
+            {CORE_LEADS_LIST.map((lead, i) => {
               const canOpenThisLead =
                 hasFullAccess || (currentUser?.assigned && currentUser.role === lead.id);
               const leadAssignment = assignmentForRole(lead.id);
@@ -378,9 +379,9 @@ export function ExComAndSquadsSection({
               const leadHolderName =
                 leadProfile?.displayName || leadAssignment?.displayName || null;
               return (
+                <Reveal key={lead.id} delay={i * 60} className="h-full">
                 <div
-                  key={lead.id}
-                  className="bg-[#F4F5F7] dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-5 flex flex-col justify-between hover:border-[#B51B27] transition-colors"
+                  className="card-lift h-full bg-[#F4F5F7] dark:bg-[#15181E] border border-[#E2E5EB] dark:border-[#262B35] rounded-xl p-5 flex flex-col justify-between hover:border-[#B51B27] transition-colors"
                 >
                   <div>
                     <div className="flex items-center justify-between text-xs font-mono text-[#5A6270] dark:text-slate-400">
@@ -454,6 +455,7 @@ export function ExComAndSquadsSection({
                     )}
                   </div>
                 </div>
+                </Reveal>
               );
             })}
           </div>
