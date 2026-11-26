@@ -54,10 +54,7 @@ export function HeroSection({
                 <rect x="29.5" y="14.1" width="11.5" height="5.8" fill="#ED1C24" />
                 <rect x="29.5" y="24.2" width="14" height="5.8" fill="#ED1C24" />
               </svg>
-              <span className="leading-tight">
-                <span className="block font-display text-[11px] font-extrabold tracking-[0.14em] text-[#111318] dark:text-white">ULTERIOR ENGINEERING</span>
-                <span className="block text-[9px] font-semibold tracking-[0.22em] text-[#5A6270] dark:text-slate-400">ONE CONNECTED ECOSYSTEM</span>
-              </span>
+              <span className="font-display text-[11px] font-extrabold tracking-[0.14em] text-[#111318] dark:text-white">ULTERIOR ENGINEERING</span>
             </div>
 
             <div className="flex items-center gap-3 text-xs font-medium tracking-wide text-[#5A6270] dark:text-slate-400">
