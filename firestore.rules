@@ -961,6 +961,9 @@ service cloud.firestore {
           (
             isChairOrCeo()
             && developerRoleNotGrantedOrRemoved()
+            // The developer is above every tier: Tier 1 may never modify
+            // a developer's profile at all (including the photo).
+            && existing().get('role', '') != 'developer'
           ) ||
           // Secretary may update others (positions and other fields) but
           // may NEVER change the role field — role changes are Chair-only
@@ -968,6 +971,7 @@ service cloud.firestore {
           (
             isSecretary()
             && developerRoleNotGrantedOrRemoved()
+            && existing().get('role', '') != 'developer'
             && (
               !incoming().keys().hasAny(['role'])
               || !existing().keys().hasAny(['role'])
