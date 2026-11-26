@@ -182,3 +182,50 @@ html.dark .glass-panel {
 .bar-grow {
   transition: width 1100ms cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* ---- Pro UI pack (2026-11-26): scroll reveal, gradient text, shine ---- */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+.text-gradient-red {
+  background: linear-gradient(100deg, #ff5a4e 0%, #B51B27 45%, #7a1019 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 600ms ease;
+  pointer-events: none;
+}
+.btn-shine:hover::after {
+  transform: translateX(120%);
+}
+
+.marquee-hover:hover .animate-marquee {
+  animation-play-state: paused;
+}
+
+.ring-glow {
+  box-shadow: 0 0 0 1px rgba(181, 27, 39, 0.45), 0 18px 40px -18px rgba(181, 27, 39, 0.55);
+}

@@ -52,7 +52,7 @@ export function HeroSection({
 
             <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.06] text-[#111318] dark:text-white text-balance max-w-2xl">
               Empowering Campuses. Engineering{' '}
-              <span className="text-[#B51B27]">Tomorrow.</span>
+              <span className="text-gradient-red">Tomorrow.</span>
             </h1>
 
             <p className="text-base text-[#5A6270] dark:text-slate-300 max-w-2xl leading-relaxed">
@@ -73,7 +73,7 @@ export function HeroSection({
                 <button
                   type="button"
                   onClick={() => onApply(preferredApplyRole)}
-                  className="inline-flex items-center gap-2 bg-[#B51B27] hover:bg-[#92141E] text-white text-sm font-semibold px-6 py-3 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="btn-shine pressable inline-flex items-center gap-2 bg-[#B51B27] hover:bg-[#92141E] text-white text-sm font-semibold px-6 py-3 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <span>Apply to Join Program</span>
                   <ArrowUpRight className="w-4 h-4" />
