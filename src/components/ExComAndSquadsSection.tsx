@@ -87,16 +87,12 @@ export function ExComAndSquadsSection({
     hasFullAccess || (currentUser?.assigned && currentUser.role === 'secretary');
 
   // Public profiles (photo, name, university, club) of role holders, used to
-  // personalise the ExCom cards. Loaded only for signed-in viewers (the
-  // users collection is not public); when unavailable, the cards fall back
-  // to the names from the portal settings, exactly as before. Private
-  // details are never read here.
+  // personalise the ExCom cards. The users collection is publicly readable
+  // (decided 2026-11-26), so these load for EVERY visitor, signed in or
+  // not — the ExCom pictures are visible without login. Only public fields
+  // are ever read here; private details never leave the private doc.
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   useEffect(() => {
-    if (!currentUser) {
-      setProfiles([]);
-      return;
-    }
     let cancelled = false;
     listAllUserProfiles()
       .then((list) => {
@@ -108,7 +104,7 @@ export function ExComAndSquadsSection({
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.uid]);
+  }, []);
 
   const profileForRole = (role: UserRole): UserProfile | null =>
     profiles.find((p) => p.role === role) ?? null;
