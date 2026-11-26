@@ -9,7 +9,7 @@ interface PageHeaderProps {
 /** Standard header for every public page: large icon, page title, one-line description. */
 export function PageHeader({ icon: Icon, title, description }: PageHeaderProps) {
   return (
-    <div className="border-b border-[#E2E5EB] dark:border-[#262B35] bg-white dark:bg-[#15181E]/50">
+    <div className="ue-watermark border-b border-[#E2E5EB] dark:border-[#262B35] bg-white dark:bg-[#15181E]/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-12">
         <div className="flex items-start gap-4">
           <div className="w-14 h-14 rounded-xl bg-[#B51B27]/10 text-[#B51B27] flex items-center justify-center shrink-0">

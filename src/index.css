@@ -229,3 +229,12 @@ html.dark .glass-panel {
 .ring-glow {
   box-shadow: 0 0 0 1px rgba(181, 27, 39, 0.45), 0 18px 40px -18px rgba(181, 27, 39, 0.55);
 }
+
+/* ---- Official UE branding: grey-blob watermark (as on ulteriorengineering.com) ---- */
+.ue-watermark {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 100'%3E%3Cpath d='M28 8 C44 0 58 10 60 26 C62 38 70 40 78 32 C88 22 104 30 108 46 C112 64 104 84 88 92 C70 101 42 100 28 86 C12 70 10 20 28 8 Z' fill='%230f172a' fill-opacity='0.05'/%3E%3C/svg%3E");
+  background-size: 230px auto;
+}
+.dark .ue-watermark {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 100'%3E%3Cpath d='M28 8 C44 0 58 10 60 26 C62 38 70 40 78 32 C88 22 104 30 108 46 C112 64 104 84 88 92 C70 101 42 100 28 86 C12 70 10 20 28 8 Z' fill='%23ffffff' fill-opacity='0.05'/%3E%3C/svg%3E");
+}

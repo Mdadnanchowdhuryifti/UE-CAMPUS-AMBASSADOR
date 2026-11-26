@@ -87,9 +87,15 @@ export function Header({
                 d="M3 4H10V20.5C10 23.2 11.7 24.8 14.3 24.8C16.9 24.8 18.6 23.2 18.6 20.5V4H25.6V20.8C25.6 27.6 21.1 31.4 14.3 31.4C7.5 31.4 3 27.6 3 20.8V4Z"
                 className="fill-[#111318] dark:fill-white"
               />
-              <rect x="29.5" y="4" width="14" height="5.8" className="fill-[#111318] dark:fill-white" />
-              <rect x="29.5" y="14.1" width="11.5" height="5.8" fill="#B51B27" />
-              <rect x="29.5" y="24.2" width="14" height="5.8" className="fill-[#111318] dark:fill-white" />
+              {/* Grey blob inside the U bowl — official UE mark detail */}
+              <path
+                d="M9.8 24.6 C9.4 21.8 10.6 19.9 12.2 19.5 C13.7 19.1 14.8 20.4 14.4 22 C14.2 22.9 15 23.2 15.9 22.8 C17.2 22.2 18.3 23 18.1 24.4 C17.9 26.3 16.2 27.3 13.9 27.1 C11.7 26.9 10.1 26.1 9.8 24.6 Z"
+                fill="#9AA3AD"
+              />
+              {/* E: three red bars, no stem — official UE mark */}
+              <rect x="29.5" y="4" width="14" height="5.8" fill="#ED1C24" />
+              <rect x="29.5" y="14.1" width="11.5" height="5.8" fill="#ED1C24" />
+              <rect x="29.5" y="24.2" width="14" height="5.8" fill="#ED1C24" />
             </svg>
             <span className="font-display font-extrabold tracking-tight text-base text-[#111318] dark:text-white">
               Ulterior Engineering
