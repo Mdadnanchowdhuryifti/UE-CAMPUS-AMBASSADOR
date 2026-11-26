@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   Camera,
+  Trash2,
   CheckCircle2,
   Lock,
   LogIn,
@@ -26,6 +27,8 @@ import {
   roleOptionsForViewer,
   saveUserProfile,
   uploadProfilePhoto,
+  removeProfilePhoto,
+  canChangeProfilePhoto,
   validateProfilePhotoFile,
 } from '../services/profileService';
 import { ROLE_LABELS } from '../services/portalService';
@@ -113,6 +116,11 @@ export function ProfilePage({
   const access = getProfileFieldAccess(currentUser, targetUid || '');
   const showRoleControl = Boolean(currentUser && canChangeUserRole(currentUser) && access.canEdit);
   const targetIsDeveloper = (profile?.role ?? (isOwn ? currentUser?.role : null)) === 'developer';
+  const targetRole = profile?.role ?? (isOwn ? currentUser?.role ?? null : role ?? null);
+  const canPhoto = Boolean(
+    currentUser && targetUid && canChangeProfilePhoto(currentUser, targetUid, targetRole)
+  );
+  const [removingPhoto, setRemovingPhoto] = useState(false);
   const isMainDevProfile = isMainDeveloperEmail(emailDisplay || (isOwn ? currentUser?.email : ''));
   const roleGuarded =
     isMainDevProfile ||
@@ -275,7 +283,7 @@ export function ProfilePage({
     setPhotoMessage(null);
     setUploadProgress(0);
     try {
-      const url = await uploadProfilePhoto(currentUser.uid, blob, (pct) =>
+      const url = await uploadProfilePhoto(currentUser, targetUid || currentUser.uid, targetRole, blob, (pct) =>
         setUploadProgress(pct)
       );
       setPhotoURL(url);
@@ -289,6 +297,26 @@ export function ProfilePage({
       });
     } finally {
       setUploadProgress(null);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    if (!currentUser || !targetUid) return;
+    setRemovingPhoto(true);
+    setPhotoMessage(null);
+    try {
+      await removeProfilePhoto(currentUser, targetUid, targetRole);
+      setPhotoURL(null);
+      setProfile((prev) => (prev ? { ...prev, photoURL: null } : prev));
+      setPhotoMessage({ kind: 'success', text: 'Profile photo removed.' });
+      onNotify('Profile photo removed.');
+    } catch (err) {
+      setPhotoMessage({
+        kind: 'error',
+        text: err instanceof Error ? err.message : 'Could not remove the photo. Please try again.',
+      });
+    } finally {
+      setRemovingPhoto(false);
     }
   };
 
@@ -559,8 +587,8 @@ export function ProfilePage({
                 {tierLabel}
               </p>
 
-              {/* Photo upload — owner only, even for Chair/Secretary editing someone else. */}
-              {isOwn ? (
+              {/* Photo add/remove — owner, developer (anyone), CEO/Chair (Secretary down to CA, never the developer). */}
+              {canPhoto ? (
                 <div className="pt-1 space-y-2">
                   <input
                     ref={fileInputRef}
@@ -579,8 +607,19 @@ export function ProfilePage({
                     className="inline-flex items-center gap-1.5 bg-[#111318] hover:bg-[#B51B27] disabled:opacity-60 dark:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors cursor-pointer"
                   >
                     <Camera className="w-3.5 h-3.5" />
-                    {uploadProgress !== null ? 'Uploading...' : 'Change photo'}
+                    {uploadProgress !== null ? 'Uploading...' : photoURL ? 'Change photo' : 'Add photo'}
                   </button>
+                  {photoURL && (
+                    <button
+                      type="button"
+                      disabled={removingPhoto || uploadProgress !== null}
+                      onClick={handleRemovePhoto}
+                      className="inline-flex items-center gap-1.5 ml-2 bg-transparent border border-[#D0D5DD] dark:border-[#2E3440] hover:border-red-400 hover:text-red-600 disabled:opacity-60 text-[#5A6270] dark:text-slate-300 text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {removingPhoto ? 'Removing...' : 'Remove photo'}
+                    </button>
+                  )}
                   <p className="text-[11px] text-[#5A6270] dark:text-slate-400">
                     JPG, PNG or WebP, up to 2 MB. You&apos;ll crop it to a square before saving.
                   </p>
@@ -613,7 +652,7 @@ export function ProfilePage({
               ) : (
                 <p className="pt-1 text-[11px] text-[#5A6270] dark:text-slate-400 inline-flex items-center gap-1.5">
                   <Lock className="w-3 h-3" />
-                  Only the profile owner can change this photo.
+                  You don&apos;t have permission to change this photo.
                 </p>
               )}
             </div>

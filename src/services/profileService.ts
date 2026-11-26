@@ -193,6 +193,28 @@ export function canChangeUserPosition(viewer: PortalUser | null): boolean {
   );
 }
 
+/**
+ * Who may ADD or REMOVE a profile photo (decided 2026-11-26):
+ * - The owner, for their own photo.
+ * - The developer, for ANYONE's photo — the developer is above all tiers.
+ * - CEO and Chair, for everyone from Secretary down to CA — but NEVER
+ *   for the developer's photo, and not for a Tier 1 peer's photo.
+ * - Everyone else (Secretary, Leads, CAs) only their own photo.
+ */
+export function canChangeProfilePhoto(
+  viewer: PortalUser | null,
+  targetUid: string,
+  targetRole: UserRole | null | undefined
+): boolean {
+  if (!viewer) return false;
+  if (viewer.uid === targetUid) return true;
+  if (viewer.role === 'developer') return true;
+  if (viewer.role === 'chair' || viewer.role === 'ceo') {
+    return targetRole !== 'developer' && targetRole !== 'chair' && targetRole !== 'ceo';
+  }
+  return false;
+}
+
 /** Roles the viewer is allowed to pick in a role dropdown (developer excluded unless viewer is developer). */
 export function roleOptionsForViewer(viewer: PortalUser | null): UserRole[] {
   if (viewer?.role === 'developer') return [...VALID_ROLES];
@@ -420,13 +442,16 @@ export function validateProfilePhotoFile(file: File): string | null {
  * invoke this for the signed-in user's own uid (enforced here).
  */
 export async function uploadProfilePhoto(
-  uid: string,
+  viewer: PortalUser,
+  targetUid: string,
+  targetRole: UserRole | null,
   blob: Blob,
   onProgress?: (percent: number) => void
 ): Promise<string> {
-  if (!auth.currentUser || auth.currentUser.uid !== uid) {
-    throw new Error('You can only upload a profile photo for your own account.');
+  if (!auth.currentUser || !canChangeProfilePhoto(viewer, targetUid, targetRole)) {
+    throw new Error('You do not have permission to change this profile photo.');
   }
+  const uid = targetUid;
   if (blob.type && blob.type !== 'image/jpeg') {
     throw new Error('Profile photos must be saved as JPEG.');
   }
@@ -485,4 +510,28 @@ export async function uploadProfilePhoto(
   }
 
   return downloadURL;
+}
+
+/**
+ * Remove a profile photo (sets photoURL to null). Same permission rule
+ * as uploads — see canChangeProfilePhoto. The image file stays in
+ * Cloudinary storage but is no longer linked from the profile.
+ */
+export async function removeProfilePhoto(
+  viewer: PortalUser,
+  targetUid: string,
+  targetRole: UserRole | null
+): Promise<void> {
+  if (!auth.currentUser || !canChangeProfilePhoto(viewer, targetUid, targetRole)) {
+    throw new Error('You do not have permission to change this profile photo.');
+  }
+  try {
+    await setDoc(
+      doc(db, 'users', targetUid),
+      { photoURL: null, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `users/${targetUid}`);
+  }
 }
