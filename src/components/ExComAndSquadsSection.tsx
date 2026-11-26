@@ -256,12 +256,15 @@ export function ExComAndSquadsSection({
                   {chairProfile?.displayName || db.chairName}
                 </h3>
                 <p className="text-xs text-[#5A6270] dark:text-slate-400 mt-0.5">
-                  Program Chair · Company CEO Oversight: <strong className="text-[#111318] dark:text-slate-200">{ceoProfile?.displayName || db.ceoName}</strong>
+                  {chairProfile
+                    ? [chairProfile.position || 'Program Chair', chairProfile.university, chairProfile.club]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : 'Program Chair · Ulterior Engineering'}
                 </p>
                 <p className="text-xs text-[#5A6270] dark:text-slate-300 mt-3 leading-relaxed">
-                  Both the Developer-appointed Program Chair and Company CEO share full operational
-                  authority over recruitment open/close controls, ExCom operations, credentials, and
-                  all squads.
+                  The Developer-appointed Program Chair holds full operational authority over
+                  recruitment open/close controls, ExCom operations, credentials, and all squads.
                 </p>
                 <div className="mt-4">
                   <button
